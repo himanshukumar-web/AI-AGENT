@@ -1,77 +1,135 @@
-import speech_recognition as sr   #pip install SpeechRecognition
-import os                         # no need to install
-import threading                  # no need to install
-from mtranslate import translate  #pip install mtranslate
-from colorama import Fore,Style,init #pip install colorama
+"""
+JARVIS AI — Speech Recognition Module
+Supports PyAudio and SoundDevice dual backends for 100% Python 3.14+ compatibility.
+Handles English & Hindi input with automatic translation.
+"""
 
-init(autoreset=True) #Automatically reset Style After Each print
+import io
+import time
+import wave
+import numpy as np
+import speech_recognition as sr
+from mtranslate import translate
+from colorama import Fore, Style, init
+
+init(autoreset=True)
+
+# Check sounddevice availability
+try:
+    import sounddevice as sd
+    HAS_SOUNDDEVICE = True
+except ImportError:
+    HAS_SOUNDDEVICE = False
+
+# Check PyAudio availability
+try:
+    import pyaudio
+    HAS_PYAUDIO = True
+except ImportError:
+    HAS_PYAUDIO = False
+
 
 def Trans_hindi_to_english(txt):
-    english_txt = translate(txt,"en-us")
-    return english_txt
+    """Translate Hindi voice input to English."""
+    if not txt:
+        return ""
+    try:
+        english_txt = translate(txt, "en-us")
+        return english_txt
+    except Exception as e:
+        return txt
+
+
+def _record_with_sounddevice(duration=5, sample_rate=16000):
+    """Record audio using sounddevice when PyAudio is not available."""
+    try:
+        recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='int16')
+        sd.wait()
+        
+        # Check if there is actual audio above silence threshold
+        max_amplitude = np.max(np.abs(recording))
+        if max_amplitude < 300:  # Silence threshold
+            return None
+
+        # Pack into WAV in memory
+        byte_io = io.BytesIO()
+        with wave.open(byte_io, 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)  # 16-bit
+            wf.setframerate(sample_rate)
+            wf.writeframes(recording.tobytes())
+        
+        byte_io.seek(0)
+        return byte_io
+    except Exception as e:
+        return None
+
 
 def listen():
+    """
+    Listen to user voice input.
+    Dual-backend: PyAudio microphone or SoundDevice fallback.
+    Translates input if in Hindi and returns recognized text.
+    """
     recognizer = sr.Recognizer()
     recognizer.dynamic_energy_threshold = True
-    recognizer.energy_threshold = 4000
-    recognizer.dynamic_energy_adjustment_damping = 0.15
-    recognizer.dynamic_energy_ratio = 1.5
-    recognizer.pause_threshold = 0.3
-    recognizer.operation_timeout = None
-    recognizer.pause_threshold = 0.2
-    recognizer.non_speaking_duration = 0.1
+    recognizer.pause_threshold = 0.6
+    recognizer.non_speaking_duration = 0.3
 
-    with sr.Microphone() as source:
-        # print("Microphone initialized.") # Reduced spam
-        recognizer.adjust_for_ambient_noise(source)
-        while True:
-            print(Fore.LIGHTGREEN_EX + "I am Listening...", end="\r", flush=True)
-            try:
-                # Wait up to 5 seconds for speech to start, and max 10 seconds for a phrase
-                audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
-                print(Fore.LIGHTYELLOW_EX + "Got it, Now Recognizing...", end="\r", flush=True)
+    # Method 1: PyAudio backend
+    if HAS_PYAUDIO:
+        try:
+            with sr.Microphone() as source:
+                recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                print(Fore.LIGHTGREEN_EX + "  Listening (PyAudio)...", end="\r", flush=True)
+                audio = recognizer.listen(source, timeout=6, phrase_time_limit=10)
+                print(Fore.LIGHTYELLOW_EX + "  Recognizing speech...", end="\r", flush=True)
                 recognized_txt = recognizer.recognize_google(audio).lower()
                 if recognized_txt:
                     translated_txt = Trans_hindi_to_english(recognized_txt)
-                    print(Fore.BLUE + "Mr STARK : " + translated_txt)
+                    print(Fore.BLUE + f"  User: {translated_txt}")
                     return translated_txt
-                else:
-                    return ""
-            except sr.WaitTimeoutError:
-                pass # Just loop back and listen again
-            except sr.UnknownValueError:
-                recognized_txt = ""
-            finally:
-                pass
+        except sr.WaitTimeoutError:
+            return ""
+        except sr.UnknownValueError:
+            return ""
+        except Exception as e:
+            pass  # Fall through to sounddevice
+
+    # Method 2: SoundDevice backend (Native Python 3.14 on Windows)
+    if HAS_SOUNDDEVICE:
+        try:
+            print(Fore.LIGHTGREEN_EX + "  Listening...", end="\r", flush=True)
+            wav_bytes = _record_with_sounddevice(duration=4, sample_rate=16000)
+            if wav_bytes is not None:
+                print(Fore.LIGHTYELLOW_EX + "  Recognizing speech...", end="\r", flush=True)
+                with sr.AudioFile(wav_bytes) as source:
+                    audio = recognizer.record(source)
+                    recognized_txt = recognizer.recognize_google(audio).lower()
+                    if recognized_txt:
+                        translated_txt = Trans_hindi_to_english(recognized_txt)
+                        print(Fore.BLUE + f"  User: {translated_txt}")
+                        return translated_txt
+            return ""
+        except sr.UnknownValueError:
+            return ""
+        except sr.RequestError as e:
+            print(Fore.YELLOW + f"  Speech API network error: {e}")
+            return ""
+        except Exception as e:
+            return ""
+
+    # Method 3: Fallback when neither audio capture is functional
+    print(Fore.YELLOW + "  [Audio Warning] No microphone backend available.")
+    return ""
+
 
 def hearing():
-    recognizer = sr.Recognizer()
-    recognizer.dynamic_energy_threshold = False
-    recognizer.energy_threshold = 34500
-    recognizer.dynamic_energy_adjustment_damping = 0.011  # less more active
-    recognizer.dynamic_energy_ratio = 1.9
-    recognizer.pause_threshold = 0.3
-    recognizer.operation_timeout = None
-    recognizer.pause_threshold = 0.2
-    recognizer.non_speaking_duration = 0.1
-    
-  
-    with sr.Microphone() as source:
-        recognizer.adjust_for_ambient_noise(source)
-        while True:
-            try:
-                audio = recognizer.listen(source,timeout=None)
-                recognized_txt = recognizer.recognize_google(audio).lower()
-                if recognized_txt:
-                    translated_txt = Trans_hindi_to_english(recognized_txt)
-                    return translated_txt
-                else:
-                    return ""
-            except sr.UnknownValueError:
-                recognized_txt = ""
-            finally:
-                print("\r",end="",flush=True)
+    """Continuous listening helper."""
+    return listen()
+
 
 if __name__ == "__main__":
-    while True:
-        listen()
+    print("Testing JARVIS Listening module...")
+    result = listen()
+    print(f"Result: '{result}'")

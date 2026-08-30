@@ -1,43 +1,39 @@
-# ── JARVIS AI — Python Dependencies ──
+# ── JARVIS AI — Python 3.14+ Dependencies ──
 # Install with: pip install -r requirements.txt
 
-# Voice
-SpeechRecognition>=3.10.0
+# Voice & Audio
+SpeechRecognition>=3.14.0
+sounddevice>=0.5.0
 pyttsx3>=2.90
-pyaudio>=0.2.13
 
 # Translation
 mtranslate>=1.8
 
-# Terminal colors
+# Terminal Colors & CLI
 colorama>=0.4.6
 
-# System info
+# System Monitoring
 psutil>=5.9.0
 
-# GUI automation
+# Desktop GUI Automation
 pyautogui>=0.9.54
 
-# Web automation / search
+# Web Automation & Scraping
 selenium>=4.15.0
 webdriver-manager>=4.0.0
+beautifulsoup4>=4.12.0
 pywhatkit>=5.4
 
-# HTTP requests
+# HTTP & API Requests
 requests>=2.31.0
 
-# NLP / ML (for brain training models)
+# NLP & Machine Learning
 nltk>=3.8.1
 scikit-learn>=1.3.0
-
-# Text summarization
 sumy>=0.11.0
 
-# Web scraping
-beautifulsoup4>=4.12.0
-
-# Environment variables
+# Environment Configuration
 python-dotenv>=1.0.0
 
-# Task scheduling
+# Automation Scheduling
 schedule>=1.2.0

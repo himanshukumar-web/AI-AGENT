@@ -8,10 +8,12 @@ dist/
 build/
 *.egg
 
-# ── Virtual Environment ──
+# ── Virtual Environments ──
 .venv/
+.venv*/
 venv/
 ENV/
+test_venv*/
 
 # ── Environment Secrets ──
 .env
@@ -32,14 +34,13 @@ desktop.ini
 tempCodeRunnerFile.*
 temp_*.py
 
-# ── Chromedriver (use webdriver-manager instead) ──
+# ── Chromedriver binaries (use webdriver-manager instead) ──
 chromedriver.exe
 chromedriver
+DATA/chromedriver.exe
 
-# ── Logs ──
+# ── Logs & Runtime Data ──
 *.log
-
-# ── Data (large files that shouldn't be in git) ──
-# NOTE: qna.txt and qna.json ARE tracked (they are training data)
-DATA/MUSIC/
 DATA/automation_logs.json
+DATA/automations.json
+DATA/MUSIC/

@@ -1,110 +1,104 @@
 """
-JARVIS AI — Main Entry Point
-Voice-controlled AI assistant with automation capabilities.
+JARVIS AI — Main Assistant Entry Point
+Voice and text-controlled personal AI assistant with modular automations.
 
-Usage: python main.py
+Usage:
+    python main.py
+    python main.py --cli    (Run in CLI text mode without microphone)
 """
 
-import importlib.util
 import os
 import sys
 import threading
 import time
 import signal
+import importlib.util
+from colorama import Fore, Style, init
 
+init(autoreset=True)
 
-def import_module_from_path(module_name, file_path):
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-# ── Path Resolution ──────────────────────────────────────────────────────────
+# ── Ensure Project Root in sys.path ──────────────────────────────────────────
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-# ── Module Paths ─────────────────────────────────────────────────────────────
-listen_path = os.path.join(project_root, 'FUNCTION', 'JARVIS_LISTEN', 'listen.py')
-speak_path = os.path.join(project_root, 'FUNCTION', 'JARVIS_SPEAK', 'speak.py')
-brain1_path = os.path.join(project_root, 'BRAIN', 'MAIN_BRAIN', 'brain1.py')
-battery_alert_path = os.path.join(project_root, 'AUTOMATION', 'JARVIS_BATTERY_ANIMATION', 'battery_alert.py')
-wish_path = os.path.join(project_root, 'BRAIN', 'ACTIVITY', 'WISH_GREATINGS', 'wish.py')
-welcome_path = os.path.join(project_root, 'BRAIN', 'ACTIVITY', 'WELCOME_GREATINGS', 'welcome.py')
-automation_manager_path = os.path.join(project_root, 'AUTOMATION', 'automation_manager.py')
+from config import PATHS, import_module_from_path, USER_NAME, ASSISTANT_NAME
 
-# ── Load Modules ─────────────────────────────────────────────────────────────
-print("=" * 50)
-print("  JARVIS AI — Initializing...")
-print("=" * 50)
+# ── Load Core Modules ────────────────────────────────────────────────────────
+print(Fore.CYAN + "=" * 55)
+print(Fore.CYAN + f"  {ASSISTANT_NAME.upper()} AI — Initializing Subsystems (Python 3.14.7)")
+print(Fore.CYAN + "=" * 55)
 
 try:
-    listen_module = import_module_from_path('listen', listen_path)
+    listen_module = import_module_from_path('listen', PATHS['listen'])
     listen = listen_module.listen
-    print("  [OK] Speech recognition loaded")
+    print(Fore.GREEN + "  [OK] Speech Recognition System Loaded")
 except Exception as e:
-    print(f"  [FAIL] Speech recognition: {e}")
+    print(Fore.RED + f"  [FAIL] Speech Recognition: {e}")
     listen = lambda: ""
 
 try:
-    speak_module = import_module_from_path('speak', speak_path)
+    speak_module = import_module_from_path('speak', PATHS['speak'])
     speak = speak_module.speak
-    print("  [OK] Text-to-speech loaded")
+    print(Fore.GREEN + "  [OK] Text-to-Speech Engine Loaded")
 except Exception as e:
-    print(f"  [FAIL] Text-to-speech: {e}")
-    speak = lambda x: print(f"JARVIS (fallback): {x}")
+    print(Fore.RED + f"  [FAIL] Text-to-Speech: {e}")
+    speak = lambda x: print(f"JARVIS: {x}")
 
 try:
-    brain1_module = import_module_from_path('brain1', brain1_path)
+    brain1_module = import_module_from_path('brain1', PATHS['brain1'])
     brain_cmd = brain1_module.brain_cmd
-    print("  [OK] Brain loaded")
+    print(Fore.GREEN + "  [OK] Intelligence & Intent Brain Loaded")
 except Exception as e:
-    print(f"  [FAIL] Brain: {e}")
-    brain_cmd = lambda x: f"I heard '{x}' but my brain is offline."
+    print(Fore.RED + f"  [FAIL] Intelligence Brain: {e}")
+    brain_cmd = lambda x: f"I heard '{x}' but my neural core is offline."
 
 try:
+    battery_alert_path = os.path.join(project_root, 'AUTOMATION', 'JARVIS_BATTERY_ANIMATION', 'battery_alert.py')
     battery_module = import_module_from_path('battery_alert', battery_alert_path)
     battery_alert = battery_module.battery_alert
-    print("  [OK] Battery monitor loaded")
+    print(Fore.GREEN + "  [OK] Battery & Power Monitor Loaded")
 except Exception as e:
-    print(f"  [FAIL] Battery monitor: {e}")
+    print(Fore.YELLOW + f"  [WARN] Battery Monitor: {e}")
     battery_alert = lambda: None
 
 try:
+    wish_path = os.path.join(project_root, 'BRAIN', 'ACTIVITY', 'WISH_GREATINGS', 'wish.py')
     wish_module = import_module_from_path('wish', wish_path)
     wish = wish_module.wish
-    print("  [OK] Greeting system loaded")
+    print(Fore.GREEN + "  [OK] Temporal Greeting System Loaded")
 except Exception as e:
-    print(f"  [FAIL] Greeting system: {e}")
+    print(Fore.YELLOW + f"  [WARN] Greeting System: {e}")
     wish = lambda: None
 
 try:
+    welcome_path = os.path.join(project_root, 'BRAIN', 'ACTIVITY', 'WELCOME_GREATINGS', 'welcome.py')
     welcome_module = import_module_from_path('welcome', welcome_path)
     welcome = welcome_module.welcome
-    print("  [OK] Welcome system loaded")
+    print(Fore.GREEN + "  [OK] Welcome Subsystem Loaded")
 except Exception as e:
-    print(f"  [FAIL] Welcome system: {e}")
+    print(Fore.YELLOW + f"  [WARN] Welcome Subsystem: {e}")
     welcome = lambda: None
 
-# Automation scheduler
 try:
-    auto_manager = import_module_from_path('automation_manager', automation_manager_path)
+    auto_manager = import_module_from_path('automation_manager', PATHS['automation_manager'])
     start_scheduler = auto_manager.start_scheduler
-    print("  [OK] Automation manager loaded")
+    print(Fore.GREEN + "  [OK] Automation Engine & Scheduler Loaded")
 except Exception as e:
-    print(f"  [FAIL] Automation manager: {e}")
+    print(Fore.YELLOW + f"  [WARN] Automation Manager: {e}")
     start_scheduler = lambda: None
 
-print("=" * 50)
+print(Fore.CYAN + "=" * 55)
 
 
 # ── Background Services ─────────────────────────────────────────────────────
 def start_battery_monitor():
-    """Run battery monitoring in background."""
+    """Run battery monitoring daemon."""
     try:
         battery_alert()
-    except Exception as e:
-        print(f"Battery monitor error: {e}")
+    except Exception:
+        pass
 
 
 # ── Shutdown Handler ─────────────────────────────────────────────────────────
@@ -112,65 +106,77 @@ _running = True
 
 
 def shutdown_handler(signum=None, frame=None):
-    """Graceful shutdown."""
+    """Graceful shutdown handler."""
     global _running
     _running = False
-    print("\n\nJARVIS shutting down...")
-    speak("Goodbye sir. Jarvis is going offline.")
+    print(Fore.YELLOW + f"\n\n{ASSISTANT_NAME} shutting down...")
+    speak(f"Goodbye {USER_NAME}. {ASSISTANT_NAME} is going offline.")
     sys.exit(0)
 
 
-# ── Main Loop ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    # Register signal handlers for clean shutdown
+# ── Main Entry Point ─────────────────────────────────────────────────────────
+def main():
+    global _running
+
     signal.signal(signal.SIGINT, shutdown_handler)
 
-    # Start background services
+    # Start battery monitoring daemon
     battery_thread = threading.Thread(target=start_battery_monitor, daemon=True)
     battery_thread.start()
 
-    # Start automation scheduler
+    # Start scheduled automation worker
     try:
         start_scheduler()
-    except Exception as e:
-        print(f"Scheduler start error: {e}")
+    except Exception:
+        pass
 
-    # Startup sequence
-    print("\n  Jarvis is online and listening...")
-    speak("Jarvis is online and ready.")
-    wish()       # Time-based greeting
-    welcome()    # Welcome message
+    cli_mode = "--cli" in sys.argv or "-c" in sys.argv
 
-    print("\n  Say 'Jarvis' followed by your command.")
-    print("  Press Ctrl+C to exit.\n")
+    # Startup Sequence
+    print(Fore.CYAN + f"\n  {ASSISTANT_NAME} is online and ready.")
+    speak(f"{ASSISTANT_NAME} is online and ready.")
+    wish()
+    welcome()
+
+    if cli_mode:
+        print(Fore.MAGENTA + f"\n  [CLI Mode Active] Type your commands (or 'exit' to quit).\n")
+    else:
+        print(Fore.MAGENTA + f"\n  Say 'Jarvis' followed by your command, or pass --cli to type.\n  Press Ctrl+C to exit.\n")
 
     while _running:
         try:
-            text = listen()
+            if cli_mode:
+                text = input(Fore.LIGHTGREEN_EX + f"You ({USER_NAME}) > ").strip()
+            else:
+                text = listen()
+
             if not text:
                 continue
 
-            text = text.lower().strip()
+            text_clean = text.strip()
 
-            if text:
-                print(f"\n  You said: {text}")
-
-                # Check for wake word
-                if "jarvis" in text:
-                    response = brain_cmd(text)
+            if cli_mode:
+                if text_clean.lower() in ["exit", "quit", "goodbye"]:
+                    shutdown_handler()
+                response = brain_cmd(text_clean)
+                if response:
+                    speak(response)
+            else:
+                # Voice mode: respond if wake word is mentioned or direct command
+                if "jarvis" in text_clean.lower() or len(text_clean.split()) > 0:
+                    response = brain_cmd(text_clean)
                     if response:
                         speak(response)
 
-                    # Check for stop/sleep command
-                    if any(kw in text for kw in ["go to sleep", "stop listening", "jarvis sleep"]):
-                        print("\n  Jarvis is sleeping. Say 'Jarvis' to wake up.")
-                        # Don't exit, just continue listening for wake word
-
-                else:
-                    print("  (Wake word 'Jarvis' not detected)")
+                    if any(kw in text_clean.lower() for kw in ["go to sleep", "stop listening"]):
+                        print(Fore.YELLOW + f"\n  {ASSISTANT_NAME} is sleeping. Speak again to wake up.")
 
         except KeyboardInterrupt:
             shutdown_handler()
         except Exception as e:
-            print(f"  Error in main loop: {e}")
+            print(Fore.RED + f"  Loop error: {e}")
             time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()

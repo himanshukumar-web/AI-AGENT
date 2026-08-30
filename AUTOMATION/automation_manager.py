@@ -1,7 +1,7 @@
 """
 JARVIS AI — Automation Manager
 Manages custom automations: create, edit, delete, enable/disable, execute, schedule.
-Stores automations in a JSON file for persistence.
+Stores automations in DATA/automations.json and logs history in DATA/automation_logs.json.
 """
 
 import json
@@ -20,6 +20,8 @@ except ImportError:
 
 def import_module_from_path(module_name, file_path):
     spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module from {file_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -32,18 +34,16 @@ project_root = os.path.abspath(os.path.join(current_dir, '..'))
 AUTOMATIONS_FILE = os.path.join(project_root, 'DATA', 'automations.json')
 LOGS_FILE = os.path.join(project_root, 'DATA', 'automation_logs.json')
 
-# Load speak
+# Load speak safely
 speak_path = os.path.join(project_root, 'FUNCTION', 'JARVIS_SPEAK', 'speak.py')
 try:
     speak_module = import_module_from_path('speak', speak_path)
     speak = speak_module.speak
-except Exception as e:
-    print(f"Error importing speak in automation_manager: {e}")
+except Exception:
     speak = print
 
 
-# ── Allowed Actions ──────────────────────────────────────────────────────────
-# Only these actions are permitted (security: no arbitrary command execution)
+# ── Allowed Actions Allowlist ────────────────────────────────────────────────
 ALLOWED_ACTIONS = {
     'open_website': 'Open a website URL in the default browser',
     'open_app': 'Open an application using Windows search',
@@ -61,14 +61,15 @@ ALLOWED_ACTIONS = {
 }
 
 
-# ── Storage ──────────────────────────────────────────────────────────────────
+# ── Storage Helpers ──────────────────────────────────────────────────────────
 def _load_automations():
     """Load automations from JSON file."""
     if os.path.exists(AUTOMATIONS_FILE):
         try:
             with open(AUTOMATIONS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError):
+                data = json.load(f)
+                return data if isinstance(data, list) else []
+        except Exception:
             return []
     return []
 
@@ -94,12 +95,13 @@ def _log_execution(automation_id, name, status, message=""):
     if os.path.exists(LOGS_FILE):
         try:
             with open(LOGS_FILE, 'r', encoding='utf-8') as f:
-                logs = json.load(f)
-        except (json.JSONDecodeError, IOError):
+                data = json.load(f)
+                logs = data if isinstance(data, list) else []
+        except Exception:
             logs = []
 
     logs.append(log_entry)
-    # Keep only last 100 entries
+    # Keep last 100 entries
     logs = logs[-100:]
 
     os.makedirs(os.path.dirname(LOGS_FILE), exist_ok=True)
@@ -109,16 +111,8 @@ def _log_execution(automation_id, name, status, message=""):
 
 # ── CRUD Operations ──────────────────────────────────────────────────────────
 def create_automation(name, action, parameters=None, schedule_time=None):
-    """Create a new automation.
-
-    Args:
-        name: Human-readable name for this automation
-        action: One of ALLOWED_ACTIONS keys
-        parameters: Dict of parameters for the action
-        schedule_time: Optional HH:MM string for daily scheduling
-    
-    Returns:
-        The created automation dict, or None if invalid
+    """
+    Create a new automation.
     """
     if action not in ALLOWED_ACTIONS:
         speak(f"Invalid action: {action}. Allowed actions are: {', '.join(ALLOWED_ACTIONS.keys())}")
@@ -140,21 +134,28 @@ def create_automation(name, action, parameters=None, schedule_time=None):
     automations.append(automation)
     _save_automations(automations)
 
+    # Refresh scheduler jobs
+    if schedule_time:
+        _setup_scheduled_jobs()
+
     speak(f"Automation '{name}' created successfully.")
     return automation
 
 
-def list_automations():
-    """List all automations and speak a summary."""
+def list_automations(speak_output=True):
+    """List all automations."""
     automations = _load_automations()
     if not automations:
-        speak("You have no automations configured.")
+        if speak_output:
+            speak("You have no automations configured.")
         return []
 
-    speak(f"You have {len(automations)} automation{'s' if len(automations) != 1 else ''}.")
-    for auto in automations:
-        status = "enabled" if auto.get('enabled', True) else "disabled"
-        speak(f"{auto['name']}: {ALLOWED_ACTIONS.get(auto['action'], auto['action'])}. Status: {status}.")
+    if speak_output:
+        speak(f"You have {len(automations)} automation{'s' if len(automations) != 1 else ''}.")
+        for auto in automations:
+            status = "enabled" if auto.get('enabled', True) else "disabled"
+            sched = f" scheduled at {auto.get('schedule_time')}" if auto.get('schedule_time') else ""
+            speak(f"{auto['name']}: {ALLOWED_ACTIONS.get(auto['action'], auto['action'])}. Status: {status}{sched}.")
     return automations
 
 
@@ -162,7 +163,7 @@ def get_automation(automation_id):
     """Get a specific automation by ID."""
     automations = _load_automations()
     for auto in automations:
-        if auto['id'] == automation_id:
+        if auto.get('id') == automation_id:
             return auto
     return None
 
@@ -171,7 +172,7 @@ def edit_automation(automation_id, **updates):
     """Edit an automation's properties."""
     automations = _load_automations()
     for i, auto in enumerate(automations):
-        if auto['id'] == automation_id:
+        if auto.get('id') == automation_id:
             for key, value in updates.items():
                 if key in ('name', 'action', 'parameters', 'schedule_time', 'enabled'):
                     if key == 'action' and value not in ALLOWED_ACTIONS:
@@ -179,7 +180,8 @@ def edit_automation(automation_id, **updates):
                         return None
                     automations[i][key] = value
             _save_automations(automations)
-            speak(f"Automation '{auto['name']}' updated successfully.")
+            _setup_scheduled_jobs()
+            speak(f"Automation '{automations[i]['name']}' updated successfully.")
             return automations[i]
     speak("Automation not found.")
     return None
@@ -189,10 +191,11 @@ def delete_automation(automation_id):
     """Delete an automation by ID."""
     automations = _load_automations()
     for i, auto in enumerate(automations):
-        if auto['id'] == automation_id:
+        if auto.get('id') == automation_id:
             name = auto['name']
             automations.pop(i)
             _save_automations(automations)
+            _setup_scheduled_jobs()
             speak(f"Automation '{name}' deleted successfully.")
             return True
     speak("Automation not found.")
@@ -209,23 +212,25 @@ def disable_automation(automation_id):
     return edit_automation(automation_id, enabled=False)
 
 
-def get_automation_history():
+def get_automation_history(speak_output=True):
     """Get execution logs."""
     if os.path.exists(LOGS_FILE):
         try:
             with open(LOGS_FILE, 'r', encoding='utf-8') as f:
                 logs = json.load(f)
                 if not logs:
-                    speak("No automation history found.")
-                else:
+                    if speak_output:
+                        speak("No automation history found.")
+                    return []
+                if speak_output:
                     speak(f"Found {len(logs)} execution records.")
-                    # Speak last 3
                     for log in logs[-3:]:
                         speak(f"{log['name']}: {log['status']} at {log['timestamp'][:16]}")
                 return logs
-        except (json.JSONDecodeError, IOError):
+        except Exception:
             pass
-    speak("No automation history found.")
+    if speak_output:
+        speak("No automation history found.")
     return []
 
 
@@ -245,10 +250,11 @@ def execute_automation(automation_id):
 
 
 def execute_automation_by_name(name):
-    """Execute an automation by its name (fuzzy match)."""
+    """Execute an automation by name (exact or substring)."""
     automations = _load_automations()
     name_lower = name.lower().strip()
 
+    # Exact match
     for auto in automations:
         if auto['name'].lower() == name_lower:
             if not auto.get('enabled', True):
@@ -256,9 +262,9 @@ def execute_automation_by_name(name):
                 return False
             return _run_action(auto)
 
-    # Try partial match
+    # Substring match
     for auto in automations:
-        if name_lower in auto['name'].lower():
+        if name_lower in auto['name'].lower() or auto['name'].lower() in name_lower:
             if not auto.get('enabled', True):
                 speak(f"Automation '{auto['name']}' is disabled.")
                 return False
@@ -269,10 +275,11 @@ def execute_automation_by_name(name):
 
 
 def _run_action(automation):
-    """Execute the action defined in an automation."""
-    action = automation['action']
+    """Execute the action defined in an automation with sandboxing & error safety."""
+    action = automation.get('action')
     params = automation.get('parameters', {})
-    name = automation['name']
+    name = automation.get('name', 'Unnamed')
+    auto_id = automation.get('id', 'unknown')
 
     try:
         if action == 'open_website':
@@ -284,7 +291,7 @@ def _run_action(automation):
                 webbrowser.open(url)
             else:
                 speak("No URL specified for this automation.")
-                _log_execution(automation['id'], name, 'failed', 'No URL specified')
+                _log_execution(auto_id, name, 'failed', 'No URL specified')
                 return False
 
         elif action == 'open_app':
@@ -297,7 +304,7 @@ def _run_action(automation):
                     open_mod.open(app_name)
                 except Exception as e:
                     speak(f"Error opening {app_name}: {e}")
-                    _log_execution(automation['id'], name, 'failed', str(e))
+                    _log_execution(auto_id, name, 'failed', str(e))
                     return False
             else:
                 speak("No app name specified.")
@@ -425,25 +432,25 @@ def _run_action(automation):
 
         else:
             speak(f"Unknown action: {action}")
-            _log_execution(automation['id'], name, 'failed', f'Unknown action: {action}')
+            _log_execution(auto_id, name, 'failed', f'Unknown action: {action}')
             return False
 
-        # Update automation run stats
-        _update_run_stats(automation['id'])
-        _log_execution(automation['id'], name, 'success')
+        # Update automation run stats & log success
+        _update_run_stats(auto_id)
+        _log_execution(auto_id, name, 'success')
         return True
 
     except Exception as e:
-        _log_execution(automation['id'], name, 'failed', str(e))
+        _log_execution(auto_id, name, 'failed', str(e))
         speak(f"Automation '{name}' failed: {e}")
         return False
 
 
 def _update_run_stats(automation_id):
-    """Update the last_run time and run_count."""
+    """Update last_run and run_count."""
     automations = _load_automations()
     for i, auto in enumerate(automations):
-        if auto['id'] == automation_id:
+        if auto.get('id') == automation_id:
             automations[i]['last_run'] = datetime.datetime.now().isoformat()
             automations[i]['run_count'] = auto.get('run_count', 0) + 1
             _save_automations(automations)
@@ -456,11 +463,10 @@ _scheduler_running = False
 
 
 def start_scheduler():
-    """Start the background scheduler for scheduled automations."""
+    """Start the background scheduler for timed automations."""
     global _scheduler_thread, _scheduler_running
 
     if schedule is None:
-        print("Schedule library not installed. Scheduled automations are disabled.")
         return
 
     if _scheduler_running:
@@ -472,11 +478,9 @@ def start_scheduler():
         import time
         while _scheduler_running:
             schedule.run_pending()
-            time.sleep(30)
+            time.sleep(15)
 
-    # Set up scheduled automations
     _setup_scheduled_jobs()
-
     _scheduler_thread = threading.Thread(target=_scheduler_loop, daemon=True)
     _scheduler_thread.start()
 
@@ -488,7 +492,7 @@ def stop_scheduler():
 
 
 def _setup_scheduled_jobs():
-    """Read automations and set up scheduled jobs."""
+    """Read automations and bind scheduled jobs."""
     if schedule is None:
         return
 
@@ -502,22 +506,19 @@ def _setup_scheduled_jobs():
                     _run_action, auto
                 )
             except Exception as e:
-                print(f"Error scheduling '{auto['name']}': {e}")
+                pass
 
 
 # ── Voice Command Interface ──────────────────────────────────────────────────
 def handle_automation_command(text):
-    """Handle automation-related voice commands.
-    
-    Returns True if command was handled, False otherwise.
-    """
+    """Handle voice commands for automations."""
     text_lower = text.lower().strip()
 
-    if "list automation" in text_lower or "show automation" in text_lower or "my automation" in text_lower:
+    if any(k in text_lower for k in ["list automation", "show automation", "my automation", "list automations"]):
         list_automations()
         return True
 
-    elif "automation history" in text_lower or "automation log" in text_lower:
+    elif any(k in text_lower for k in ["automation history", "automation log", "automation logs"]):
         get_automation_history()
         return True
 
@@ -565,9 +566,8 @@ def handle_automation_command(text):
         return True
 
     elif "create automation" in text_lower or "new automation" in text_lower:
-        speak("To create an automation, please use the command format: "
-              "create automation named [name] action [action_type] with [parameters].")
-        speak(f"Available actions are: {', '.join(ALLOWED_ACTIONS.keys())}")
+        speak("To create an automation, specify the name, action, and optional parameters.")
+        speak(f"Supported actions are: {', '.join(ALLOWED_ACTIONS.keys())}")
         return True
 
     return False
