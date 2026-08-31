@@ -137,10 +137,17 @@ def main():
     except Exception:
         pass
 
+    # Check for Doctor / Diagnostics command line argument
+    if "--doctor" in sys.argv or "-d" in sys.argv:
+        from BRAIN.UTILS.diagnostics import doctor
+        doctor.print_report()
+        sys.exit(0)
+
     cli_mode = "--cli" in sys.argv or "-c" in sys.argv
 
     # Startup Sequence
     print(Fore.CYAN + f"\n  {ASSISTANT_NAME} is online and ready.")
+
     speak(f"{ASSISTANT_NAME} is online and ready.")
     wish()
     welcome()

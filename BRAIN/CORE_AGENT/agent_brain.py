@@ -1,6 +1,6 @@
 """
-JARVIS AI — Core Agent Brain & Layered Intelligence
-Orchestrates Fast Path Detection, Legacy ML/Q&A fallback, LLM Reasoning, Tool Execution, and Memory.
+JARVIS AI — Core Agent Brain & Layered Intelligence (Phase 2)
+Orchestrates Router, Planner, Namespaced Tools, Memory 2.0, Task State, and LLM Reasoning.
 """
 
 import json
@@ -8,6 +8,7 @@ import os
 import random
 import re
 import sys
+import time
 from typing import Any, Dict, Generator, List, Optional
 from colorama import Fore
 
@@ -25,6 +26,11 @@ from BRAIN.TOOLS.tool_registry import tool_registry
 from BRAIN.MEMORY.conversation_manager import conversation_manager
 from BRAIN.MEMORY.memory_manager import memory_manager
 from BRAIN.PROMPTS.system_prompt import get_system_prompt
+from BRAIN.CORE_AGENT.router import intelligent_router, RouteCategory
+from BRAIN.CORE_AGENT.task_state import task_state_manager, TaskState
+from BRAIN.PLANNER.planner import task_planner
+from BRAIN.UTILS.logger import jarvis_logger
+from BRAIN.UTILS.metrics import metrics_tracker
 
 
 class AgentBrain:
@@ -35,7 +41,6 @@ class AgentBrain:
 
     def _load_legacy_subsystems(self):
         """Safely import legacy utilities and dialog data."""
-        # DLG
         try:
             dlg = import_module_from_path('DLG', PATHS['dlg'])
             self.res1 = getattr(dlg, 'res1', ["Hello sir, Jarvis is online."])
@@ -107,6 +112,38 @@ class AgentBrain:
 
         return t
 
+    def _handle_memory_command(self, meta: Dict[str, Any]) -> str:
+        """Process natural memory commands directly."""
+        sub_type = meta.get("sub_type")
+        if sub_type == "remember":
+            content = meta.get("content", "")
+            # Attempt to split on key/value if contains 'that' or ':'
+            parts = content.split("is", 1) if "is" in content else content.split(":", 1)
+            if len(parts) == 2:
+                k = parts[0].replace("my", "").replace("that", "").strip()
+                v = parts[1].strip()
+            else:
+                k = f"note_{int(time.time())}"
+                v = content.strip()
+            memory_manager.store_fact(key=k, value=v, category="preference")
+            return f"Understood {USER_NAME}, I'll remember that {k} is {v}."
+
+        if sub_type == "forget":
+            query = meta.get("query", "")
+            count = memory_manager.forget_facts_matching(query)
+            if count > 0:
+                return f"I have forgotten {count} memory record{'s' if count != 1 else ''} regarding '{query}'."
+            return f"I couldn't find any memory records matching '{query}' to forget."
+
+        if sub_type == "recall":
+            facts = memory_manager.recall_facts(category="preference")
+            if not facts:
+                return f"I don't have any specific preferences saved in my memory yet, {USER_NAME}."
+            summary = ", ".join([f"{f['key']}: {f['value']}" for f in facts[:5]])
+            return f"Here is what I remember about your preferences: {summary}."
+
+        return "Memory operation completed."
+
     def _try_fast_deterministic_path(self, raw_text: str, norm_text: str) -> Optional[str]:
         """
         Fast path: Instant local execution without LLM latency for unambiguous commands.
@@ -126,56 +163,72 @@ class AgentBrain:
         if norm_text in [s.lower() for s in self.stopcmd] or any(s in norm_text for s in ["go to sleep", "stop listening"]):
             return random.choice(self.stopdlg)
 
-        # 4. Time
+        # 4. Diagnostics command
+        if norm_text in ["run diagnostics", "diagnostics", "check health", "doctor", "health check"]:
+            from BRAIN.UTILS.diagnostics import doctor
+            doctor.print_report()
+            return "All diagnostic checks have been performed and printed to your console, sir."
+
+        # 5. Time
         if norm_text in ["what time is it", "what is the time", "current time", "tell me time", "time batao", "kitne baje"]:
-            res = tool_registry.execute_tool("get_time")
+            res = tool_registry.execute_tool("system.time", user_request=raw_text)
             if res.get("success"):
                 return f"The current time is {res['data']['time']}."
 
-        # 5. Battery
+        # 6. Battery
         if norm_text in ["battery", "battery status", "battery percentage", "check battery", "battery kitni hai"]:
-            res = tool_registry.execute_tool("get_battery_status")
+            res = tool_registry.execute_tool("system.battery", user_request=raw_text)
             if res.get("success"):
                 return res['data']['formatted']
 
-        # 6. Joke
+        # 7. Joke
         if norm_text in ["tell me a joke", "joke", "make me laugh", "funny"]:
-            res = tool_registry.execute_tool("get_joke")
+            res = tool_registry.execute_tool("system.joke", user_request=raw_text)
             if res.get("success"):
                 return res['data']['joke']
 
-        # 7. Advice
+        # 8. Advice
         if norm_text in ["give me advice", "advice", "suggestion", "motivate me"]:
-            res = tool_registry.execute_tool("get_advice")
+            res = tool_registry.execute_tool("system.advice", user_request=raw_text)
             if res.get("success"):
                 return f"Here is some advice: {res['data']['advice']}"
 
-        # 8. IP Address
+        # 9. IP Address
         if norm_text in ["my ip", "ip address", "find my ip", "what is my ip"]:
-            res = tool_registry.execute_tool("get_ip")
+            res = tool_registry.execute_tool("system.ip", user_request=raw_text)
             if res.get("success"):
                 return f"Your public IP is {res['data']['ip']}."
 
-        # 9. Direct Single App / Website Launch (e.g. "open youtube", "open google", "open notepad")
+        # 10. Direct Single App / Website Launch
         if norm_text == "open youtube":
-            tool_registry.execute_tool("open_website", {"url": "youtube.com"})
-            conversation_manager.set_context_state(active_topic="youtube", last_action="open_website")
+            tool_registry.execute_tool("browser.open", {"url": "youtube.com"}, user_request=raw_text)
+            conversation_manager.set_context_state(active_topic="youtube", last_action="browser.open")
             return "Opening YouTube, sir."
 
         if norm_text == "open google":
-            tool_registry.execute_tool("open_website", {"url": "google.com"})
-            conversation_manager.set_context_state(active_topic="browser", last_action="open_website")
+            tool_registry.execute_tool("browser.open", {"url": "google.com"}, user_request=raw_text)
+            conversation_manager.set_context_state(active_topic="browser", last_action="browser.open")
             return "Opening Google, sir."
 
         if norm_text.startswith("open notepad"):
-            tool_registry.execute_tool("launch_application", {"app_name": "notepad"})
+            tool_registry.execute_tool("system.launch_app", {"app_name": "notepad"}, user_request=raw_text)
             return "Opening Notepad, sir."
 
         if norm_text.startswith("open calculator"):
-            tool_registry.execute_tool("launch_application", {"app_name": "calc"})
+            tool_registry.execute_tool("system.launch_app", {"app_name": "calc"}, user_request=raw_text)
             return "Opening Calculator, sir."
 
-        # 10. Exact QNA Dataset match
+        # 11. Contextual Ordinal Follow-up (e.g. "play the second result" / "play the 2nd one")
+        if any(w in norm_text for w in ["play the", "play second", "play 2nd", "play first", "play 1st", "play third"]):
+            idx = conversation_manager.resolve_ordinal_index(norm_text)
+            if idx is not None:
+                search_results = conversation_manager.get_search_results()
+                if search_results and idx < len(search_results):
+                    target_song = search_results[idx]
+                    tool_registry.execute_tool("youtube.play", {"query": target_song}, user_request=raw_text)
+                    return f"Playing option {idx + 1}: {target_song}."
+
+        # 12. Exact QNA Dataset match
         if norm_text in self.qa_dict:
             return self.qa_dict[norm_text]
 
@@ -184,7 +237,7 @@ class AgentBrain:
     def process_command(self, text: str) -> Optional[str]:
         """
         Main entry point for processing a text command.
-        Executes layered pipeline: Fast Path -> LLM Reasoner + Tools -> Fallbacks.
+        Executes layered pipeline: Router -> Fast Path / Planner / Memory / LLM Agent -> Fallbacks.
         """
         if not text or not str(text).strip():
             return None
@@ -195,25 +248,55 @@ class AgentBrain:
         # Record user turn
         conversation_manager.add_user_message(raw_text)
 
-        # Layer 1: Fast Deterministic Path (if routing mode is hybrid or fast_first)
-        if LLM_ROUTING_MODE in ("hybrid", "fast_first"):
+        # 1. Routing Phase
+        context_state = conversation_manager.get_context_state()
+        category, meta = intelligent_router.route(norm_text, active_topic=context_state.get("active_topic"))
+        jarvis_logger.info("ROUTER", f"Classified input as [{category.name}]")
+
+        # 2. Interruption Handler
+        if category == RouteCategory.INTERRUPT:
+            task_state_manager.request_interruption()
+            msg = "Action stopped, sir."
+            conversation_manager.add_assistant_message(msg)
+            return msg
+
+        # 3. Memory 2.0 Command Direct Handler
+        if category == RouteCategory.MEMORY_COMMAND:
+            msg = self._handle_memory_command(meta)
+            conversation_manager.add_assistant_message(msg)
+            return msg
+
+        # 4. Fast Deterministic Path (0 LLM latency)
+        if category == RouteCategory.SIMPLE_COMMAND or LLM_ROUTING_MODE == "fast_first":
             fast_res = self._try_fast_deterministic_path(raw_text.lower(), norm_text)
             if fast_res is not None:
                 conversation_manager.add_assistant_message(fast_res)
                 return fast_res
 
-        # Layer 2: Modern LLM Agent with Tool Invocation
+        # 5. Multi-Step Task Planner
+        if category == RouteCategory.MULTI_STEP_TASK:
+            jarvis_logger.info("AGENT", "Delegating complex instruction to Task Planner")
+            plan = task_planner.create_plan(raw_text)
+            exec_res = task_planner.execute_plan(plan)
+            if exec_res.get("interrupted"):
+                ans = "Task was interrupted and safely stopped."
+            else:
+                ans = f"I've completed the task '{plan.title}'. {exec_res.get('summary', '')}"
+            conversation_manager.add_assistant_message(ans)
+            return ans
+
+        # 6. Modern LLM Agent with Grounded Tool Invocation
         active_provider = provider_manager.get_active_provider()
         if active_provider.provider_name != "offline_fallback" and LLM_ROUTING_MODE != "offline_only":
             try:
-                # Prepare context
-                facts_list = memory_manager.recall_facts(category="preference")
-                facts_str = "\n".join([f"- {f['key']}: {f['value']}" for f in facts_list])
-                system_prompt = get_system_prompt(custom_facts=facts_str)
-                history = conversation_manager.get_history_for_llm()[:-1]  # Exclude current prompt from history
+                # Memory relevance injection
+                relevant_facts = memory_manager.search_relevant_context(raw_text)
+                system_prompt = get_system_prompt(custom_facts=relevant_facts)
+                history = conversation_manager.get_history_for_llm()[:-1]
                 tools = tool_registry.get_tool_definitions()
 
                 # Step 1: Initial LLM inference
+                start_llm = time.perf_counter()
                 llm_response = provider_manager.generate_with_fallback(
                     prompt=raw_text,
                     system_prompt=system_prompt,
@@ -222,12 +305,19 @@ class AgentBrain:
                     temperature=LLM_TEMPERATURE,
                     max_tokens=LLM_MAX_TOKENS,
                 )
+                duration_ms = (time.perf_counter() - start_llm) * 1000.0
+                usage = getattr(llm_response, 'usage', {}) or {}
+                metrics_tracker.record_llm_call(
+                    duration_ms=duration_ms,
+                    prompt_tokens=usage.get('prompt_tokens', 0),
+                    completion_tokens=usage.get('completion_tokens', 0)
+                )
 
                 # Step 2: Handle Tool Calls
                 if llm_response.has_tool_calls:
                     tool_results = []
                     for tc in llm_response.tool_calls:
-                        res = tool_registry.execute_tool(tc.name, tc.arguments)
+                        res = tool_registry.execute_tool(tc.name, tc.arguments, user_request=raw_text)
                         tool_results.append({"tool": tc.name, "arguments": tc.arguments, "result": res})
                         # Update context state
                         if "youtube" in tc.name:
@@ -237,8 +327,8 @@ class AgentBrain:
                         elif "automation" in tc.name:
                             conversation_manager.set_context_state(active_topic="automation", last_action=tc.name)
 
-                    # Step 3: Second-pass synthesis with tool observation
-                    obs_prompt = f"User Request: {raw_text}\nTool Execution Results:\n{json.dumps(tool_results, indent=2)}\nProvide a helpful, direct, concise spoken response to {USER_NAME} based on these actual tool results."
+                    # Step 3: Synthesis with grounded tool observation
+                    obs_prompt = f"User Request: {raw_text}\nTool Execution Results:\n{json.dumps(tool_results, indent=2)}\nProvide a helpful, direct, concise spoken response to {USER_NAME} based strictly on these actual tool results."
                     final_response = provider_manager.generate_with_fallback(
                         prompt=obs_prompt,
                         system_prompt=system_prompt,
@@ -256,9 +346,9 @@ class AgentBrain:
                     return ans
 
             except Exception as e:
-                print(Fore.YELLOW + f"  [Agent LLM Error] {e}. Falling back to internal engine...")
+                jarvis_logger.warning("AGENT", f"LLM error: {e}. Falling back...")
 
-        # Layer 3: Legacy ML Intent & QA Fallback
+        # 7. Legacy ML Models & Search Fallback
         if self.ml2_response is not None:
             try:
                 ml2_res = self.ml2_response(norm_text)
@@ -277,8 +367,8 @@ class AgentBrain:
             except Exception:
                 pass
 
-        # Layer 4: Default Fallback
-        fallback_msg = "I understand, sir. Let me know if you would like me to perform any further action."
+        # 8. Default Friendly Fallback
+        fallback_msg = f"I've noted that {USER_NAME}. Let me know if you would like me to assist with anything else."
         conversation_manager.add_assistant_message(fallback_msg)
         return fallback_msg
 

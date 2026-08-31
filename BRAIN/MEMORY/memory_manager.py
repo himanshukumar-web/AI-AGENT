@@ -1,7 +1,10 @@
 """
-JARVIS AI — Long-Term & Short-Term SQLite Memory Architecture
-Persistent lightweight local database for user preferences, facts, and session logs.
-Does NOT store sensitive passwords or system secrets.
+JARVIS AI — Memory 2.0 (Short-Term, Long-Term, and Episodic Architecture)
+SQLite storage for:
+1. Long-Term Facts & Preferences (key-value + category)
+2. Episodic Task Memory (completed plans, summaries, and key outcomes)
+3. Session Conversation Turns
+Provides relevance-based context retrieval so full DB is never sent to the LLM.
 """
 
 import datetime
@@ -11,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 
 class MemoryManager:
-    """Manages SQLite-based long-term facts and conversation persistence."""
+    """Memory 2.0 Engine managing Long-Term, Episodic, and Conversation History."""
 
     def __init__(self, db_path: Optional[str] = None):
         if db_path is None:
@@ -29,10 +32,10 @@ class MemoryManager:
         return conn
 
     def _init_db(self):
-        """Create tables if they don't exist."""
+        """Create tables if they do not exist."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            # 1. Long-term memory table
+            # 1. Long-Term Memory (User Preferences & Facts)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS long_term_memory (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,7 +46,17 @@ class MemoryManager:
                     updated_at TEXT NOT NULL
                 )
             """)
-            # 2. Conversation turn history
+            # 2. Episodic Memory (Completed complex tasks & automations)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS episodic_memory (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_title TEXT NOT NULL,
+                    summary TEXT NOT NULL,
+                    tools_used_json TEXT,
+                    timestamp TEXT NOT NULL
+                )
+            """)
+            # 3. Conversation Turn History
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS conversation_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,7 +69,7 @@ class MemoryManager:
             """)
             conn.commit()
 
-    # ── Long-Term Memory (Preferences & Facts) ──────────────────────────────
+    # ── Long-Term Memory ────────────────────────────────────────────────────
     def store_fact(self, key: str, value: str, category: str = "preference") -> bool:
         """Store or update a user preference or fact."""
         now = datetime.datetime.now().isoformat()
@@ -89,7 +102,7 @@ class MemoryManager:
         return None
 
     def recall_facts(self, query: Optional[str] = None, category: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Search stored facts by keyword or category."""
+        """Search stored facts by query or category."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             if query and category:
@@ -114,7 +127,7 @@ class MemoryManager:
             return [{"key": r["key_name"], "value": r["value_text"], "category": r["category"], "updated_at": r["updated_at"]} for r in rows]
 
     def delete_fact(self, key: str) -> bool:
-        """Delete a stored fact by key."""
+        """Delete a specific stored fact."""
         clean_key = key.strip().lower()
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -122,17 +135,80 @@ class MemoryManager:
             conn.commit()
             return cursor.rowcount > 0
 
-    def clear_all(self):
-        """Clear all stored data (testing/reset utility)."""
+    def forget_facts_matching(self, query: str) -> int:
+        """Forget facts matching keyword or topic."""
+        clean_query = query.strip().lower()
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM long_term_memory")
-            cursor.execute("DELETE FROM conversation_history")
+            cursor.execute("DELETE FROM long_term_memory WHERE key_name LIKE ? OR value_text LIKE ?", (f"%{clean_query}%", f"%{clean_query}%"))
             conn.commit()
+            return cursor.rowcount
+
+    # ── Episodic Memory ─────────────────────────────────────────────────────
+    def record_episode(self, task_title: str, summary: str, tools_used: Optional[List[str]] = None) -> bool:
+        """Record a completed complex multi-step task."""
+        now = datetime.datetime.now().isoformat()
+        import json
+        tools_json = json.dumps(tools_used or [])
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO episodic_memory (task_title, summary, tools_used_json, timestamp)
+                    VALUES (?, ?, ?, ?)
+                """, (task_title, summary, tools_json, now))
+                conn.commit()
+                return True
+        except Exception:
+            return False
+
+    def get_recent_episodes(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Retrieve recent episodic summaries."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT id, task_title, summary, timestamp FROM episodic_memory ORDER BY id DESC LIMIT ?", (limit,))
+                rows = cursor.fetchall()
+                return [dict(r) for r in rows]
+        except Exception:
+            return []
+
+    # ── Relevance-Based Retrieval ───────────────────────────────────────────
+    def search_relevant_context(self, user_prompt: str, max_items: int = 4) -> str:
+        """
+        Extract only contextually relevant facts for the current query
+        to avoid sending the entire database to the LLM.
+        """
+        words = [w.lower() for w in user_prompt.split() if len(w) > 3]
+        if not words:
+            # Return top preferences if no specific keywords match
+            facts = self.recall_facts(category="preference")[:max_items]
+        else:
+            scored_facts = []
+            all_facts = self.recall_facts()
+            for f in all_facts:
+                score = 0
+                k = f["key"].lower()
+                v = f["value"].lower()
+                for w in words:
+                    if w in k:
+                        score += 2
+                    if w in v:
+                        score += 1
+                if score > 0:
+                    scored_facts.append((score, f))
+            scored_facts.sort(key=lambda x: x[0], reverse=True)
+            facts = [sf[1] for sf in scored_facts[:max_items]]
+            if not facts:
+                facts = self.recall_facts(category="preference")[:max_items]
+
+        if not facts:
+            return ""
+        return "\n".join([f"- {f['key']}: {f['value']}" for f in facts])
 
     # ── Conversation Turn Logging ───────────────────────────────────────────
     def log_turn(self, session_id: str, role: str, content: str, tool_calls_json: Optional[str] = None):
-        """Log a conversation message."""
+        """Log a conversation turn."""
         now = datetime.datetime.now().isoformat()
         try:
             with self._get_connection() as conn:
@@ -156,6 +232,15 @@ class MemoryManager:
             """, (session_id, limit))
             rows = cursor.fetchall()
             return [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+
+    def clear_all(self):
+        """Reset all tables (testing utility)."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM long_term_memory")
+            cursor.execute("DELETE FROM episodic_memory")
+            cursor.execute("DELETE FROM conversation_history")
+            conn.commit()
 
 
 # Global singleton instance

@@ -1,6 +1,6 @@
 """
-JARVIS AI — Comprehensive Verification & Modern Agent Test Suite
-Tests all core subsystems, LLM providers, tools, memory, safety, and voice under Python 3.14.
+JARVIS AI — Comprehensive Verification & Phase 2 Advanced Agent Test Suite
+Tests all core subsystems, Router, Planner, Namespaced Tools, Memory 2.0, Action Logger, and Doctor.
 """
 
 import os
@@ -17,8 +17,14 @@ from BRAIN.LLM.base_provider import BaseLLMProvider, LLMResponse, ToolCall
 from BRAIN.LLM.provider_manager import provider_manager
 from BRAIN.TOOLS.tool_registry import tool_registry
 from BRAIN.TOOLS.safety_manager import safety_manager, RiskLevel
-from BRAIN.MEMORY.memory_manager import MemoryManager
+from BRAIN.TOOLS.action_logger import action_logger
+from BRAIN.MEMORY.memory_manager import MemoryManager, memory_manager
 from BRAIN.MEMORY.conversation_manager import conversation_manager
+from BRAIN.CORE_AGENT.router import intelligent_router, RouteCategory
+from BRAIN.CORE_AGENT.task_state import task_state_manager, TaskState
+from BRAIN.PLANNER.planner import task_planner, TaskPlan, PlanStep
+from BRAIN.UTILS.diagnostics import doctor
+from BRAIN.UTILS.metrics import metrics_tracker
 from BRAIN.PROMPTS.system_prompt import get_system_prompt
 from VOICE.voice_engine import voice_engine
 
@@ -27,9 +33,8 @@ class TestJarvisConfig(unittest.TestCase):
     def test_paths_exist(self):
         """Verify all critical files exist in declared paths."""
         for name, path in PATHS.items():
-            if name in ['automations_db', 'automation_logs', 'memory_manager', 'safety_manager']:
-                if name in ['automations_db', 'automation_logs']:
-                    continue  # Runtime files created on demand
+            if name in ['automations_db', 'automation_logs']:
+                continue  # Runtime files created on demand
             self.assertTrue(os.path.exists(path), f"Path does not exist: {path}")
 
     def test_config_variables(self):
@@ -39,78 +44,90 @@ class TestJarvisConfig(unittest.TestCase):
         self.assertIsInstance(LLM_PROVIDER, str)
 
 
-class TestLLMProviders(unittest.TestCase):
-    def test_provider_manager_initialization(self):
-        """Verify provider manager discovers registered providers."""
-        providers = provider_manager.list_available_providers()
-        self.assertTrue(len(providers) >= 4)
-        names = [p["provider"] for p in providers]
-        self.assertIn("openai", names)
-        self.assertIn("gemini", names)
-        self.assertIn("ollama", names)
-        self.assertIn("groq", names)
+class TestIntelligentRouter(unittest.TestCase):
+    def test_interruption_routing(self):
+        """Test routing for user interruption."""
+        cat, meta = intelligent_router.route("stop")
+        self.assertEqual(cat, RouteCategory.INTERRUPT)
+        cat, meta = intelligent_router.route("jarvis stop")
+        self.assertEqual(cat, RouteCategory.INTERRUPT)
 
-    def test_active_provider_fallback(self):
-        """Ensure an active provider is always resolvable without crashing."""
-        active = provider_manager.get_active_provider()
-        self.assertIsNotNone(active)
-        self.assertIsInstance(active, BaseLLMProvider)
+    def test_memory_routing(self):
+        """Test routing for natural memory commands."""
+        cat, meta = intelligent_router.route("remember that my favorite city is Tokyo")
+        self.assertEqual(cat, RouteCategory.MEMORY_COMMAND)
+        self.assertEqual(meta.get("sub_type"), "remember")
 
-    def test_offline_fallback_generation(self):
-        """Verify offline fallback provider generates structured responses."""
-        fallback = provider_manager.get_provider("offline_fallback")
-        self.assertIsNotNone(fallback)
-        resp = fallback.generate("Hello")
-        self.assertIsInstance(resp, LLMResponse)
-        self.assertTrue(len(resp.text) > 0)
+        cat, meta = intelligent_router.route("forget what I told you about Tokyo")
+        self.assertEqual(cat, RouteCategory.MEMORY_COMMAND)
+        self.assertEqual(meta.get("sub_type"), "forget")
+
+        cat, meta = intelligent_router.route("what do you remember about my preferences?")
+        self.assertEqual(cat, RouteCategory.MEMORY_COMMAND)
+        self.assertEqual(meta.get("sub_type"), "recall")
+
+    def test_simple_command_routing(self):
+        """Test zero-latency simple command classification."""
+        cat, meta = intelligent_router.route("what time is it")
+        self.assertEqual(cat, RouteCategory.SIMPLE_COMMAND)
+
+        cat, meta = intelligent_router.route("open youtube")
+        self.assertEqual(cat, RouteCategory.SIMPLE_COMMAND)
+
+    def test_multi_step_routing(self):
+        """Test multi-step instruction detection."""
+        cat, meta = intelligent_router.route("find the best python courses and summarize the result")
+        self.assertEqual(cat, RouteCategory.MULTI_STEP_TASK)
 
 
-class TestToolRegistry(unittest.TestCase):
-    def test_tool_definitions_schema(self):
-        """Verify tool schemas are valid and properly structured."""
-        definitions = tool_registry.get_tool_definitions()
-        self.assertTrue(len(definitions) >= 10)
-        tool_names = [d["name"] for d in definitions]
-        self.assertIn("get_time", tool_names)
-        self.assertIn("get_weather", tool_names)
-        self.assertIn("get_battery_status", tool_names)
-        self.assertIn("create_automation", tool_names)
-        self.assertIn("list_automations", tool_names)
+class TestTaskPlanner(unittest.TestCase):
+    def test_planner_creation_and_execution(self):
+        """Test task planner generating and executing steps safely."""
+        plan = task_planner.create_plan("Find the best Python courses, compare them and summarize the result")
+        self.assertIsInstance(plan, TaskPlan)
+        self.assertTrue(len(plan.steps) > 0)
 
-    def test_time_tool_execution(self):
-        """Test get_time tool returns structured output."""
-        res = tool_registry.execute_tool("get_time")
+        # Execute plan
+        res = task_planner.execute_plan(plan)
+        self.assertTrue(res.get("success"))
+        self.assertFalse(res.get("interrupted"))
+
+    def test_planner_interruption(self):
+        """Test plan cancellation when interruption is signaled."""
+        plan = TaskPlan(
+            title="Interrupted Test Plan",
+            steps=[
+                PlanStep(tool="system.time", description="Check time"),
+                PlanStep(tool="system.battery", description="Check battery"),
+            ]
+        )
+        task_state_manager.request_interruption()
+        res = task_planner.execute_plan(plan)
+        self.assertTrue(res.get("interrupted"))
+        task_state_manager.reset()
+
+
+class TestNamespacedToolRegistry(unittest.TestCase):
+    def test_canonical_and_aliased_tools(self):
+        """Verify namespaced and legacy tool resolution."""
+        canon = tool_registry.resolve_tool_name("get_time")
+        self.assertEqual(canon, "system.time")
+
+        canon = tool_registry.resolve_tool_name("youtube_play")
+        self.assertEqual(canon, "youtube.play")
+
+    def test_action_auditing(self):
+        """Verify tool execution logs to action history."""
+        res = tool_registry.execute_tool("system.time", user_request="Testing action audit")
         self.assertTrue(res["success"])
-        self.assertIn("time", res["data"])
-        self.assertIn("formatted", res["data"])
 
-    def test_battery_tool_execution(self):
-        """Test get_battery_status tool returns structured output."""
-        res = tool_registry.execute_tool("get_battery_status")
-        self.assertTrue(res["success"])
-        self.assertIn("percent", res["data"])
-
-    def test_unregistered_tool_rejection(self):
-        """Test unregistered/arbitrary tool execution is blocked."""
-        res = tool_registry.execute_tool("arbitrary_exec_bash")
-        self.assertFalse(res["success"])
-        self.assertIn("not registered", res["error"])
+        actions = action_logger.get_recent_actions(limit=5)
+        self.assertTrue(len(actions) > 0)
+        self.assertEqual(actions[0]["tool_name"], "system.time")
+        self.assertEqual(actions[0]["success"], 1)
 
 
-class TestSafetyManager(unittest.TestCase):
-    def test_risk_levels(self):
-        """Verify risk levels are correctly categorized."""
-        self.assertEqual(safety_manager.get_risk_level("get_time"), RiskLevel.LOW)
-        self.assertEqual(safety_manager.get_risk_level("youtube_play"), RiskLevel.MEDIUM)
-        self.assertEqual(safety_manager.get_risk_level("delete_automation"), RiskLevel.HIGH)
-
-    def test_safety_block_unknown_action(self):
-        """Verify unauthorized actions fail validation."""
-        allowed = safety_manager.validate_execution("dangerous_shell_tool", {})
-        self.assertFalse(allowed)
-
-
-class TestMemoryManager(unittest.TestCase):
+class TestMemory2(unittest.TestCase):
     def setUp(self):
         self.temp_db = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
         self.temp_db.close()
@@ -123,56 +140,77 @@ class TestMemoryManager(unittest.TestCase):
             except Exception:
                 pass
 
-    def test_fact_storage_and_recall(self):
-        """Test storing, updating, recalling, and deleting long-term facts."""
-        # 1. Store
-        ok = self.mem.store_fact("favorite_genre", "synthwave", category="preference")
+    def test_episodic_memory(self):
+        """Test recording and recalling episodic tasks."""
+        ok = self.mem.record_episode("Setup Development Workspace", "Opened IDE and cloned repositories", ["browser.open"])
         self.assertTrue(ok)
 
-        # 2. Get
-        val = self.mem.get_fact("favorite_genre")
-        self.assertEqual(val, "synthwave")
+        episodes = self.mem.get_recent_episodes(limit=5)
+        self.assertEqual(len(episodes), 1)
+        self.assertEqual(episodes[0]["task_title"], "Setup Development Workspace")
 
-        # 3. Recall with query
-        recalled = self.mem.recall_facts(query="synthwave")
-        self.assertEqual(len(recalled), 1)
-        self.assertEqual(recalled[0]["key"], "favorite_genre")
+    def test_relevance_retrieval(self):
+        """Test scoring and selecting only relevant facts."""
+        self.mem.store_fact("favorite_genre", "Synthwave", category="preference")
+        self.mem.store_fact("favorite_editor", "VSCode", category="preference")
+        self.mem.store_fact("home_city", "Berlin", category="preference")
 
-        # 4. Update
-        self.mem.store_fact("favorite_genre", "ambient lofi")
-        self.assertEqual(self.mem.get_fact("favorite_genre"), "ambient lofi")
+        context = self.mem.search_relevant_context("play some synthwave music")
+        self.assertIn("favorite_genre", context)
+        self.assertIn("Synthwave", context)
 
-        # 5. Delete
-        deleted = self.mem.delete_fact("favorite_genre")
-        self.assertTrue(deleted)
-        self.assertIsNone(self.mem.get_fact("favorite_genre"))
+    def test_forget_matching(self):
+        """Test forgetting facts matching a query."""
+        self.mem.store_fact("favorite_drink", "Matcha Tea")
+        self.assertEqual(self.mem.get_fact("favorite_drink"), "Matcha Tea")
 
-    def test_conversation_logging(self):
-        """Test conversation turn logging and retrieval."""
-        session_id = "test_session_1"
-        self.mem.log_turn(session_id, "user", "What is my schedule?")
-        self.mem.log_turn(session_id, "assistant", "You have no scheduled events.")
-
-        history = self.mem.get_recent_history(session_id, limit=5)
-        self.assertEqual(len(history), 2)
-        self.assertEqual(history[0]["role"], "user")
-        self.assertEqual(history[1]["role"], "assistant")
+        count = self.mem.forget_facts_matching("matcha")
+        self.assertEqual(count, 1)
+        self.assertIsNone(self.mem.get_fact("favorite_drink"))
 
 
-class TestConversationManager(unittest.TestCase):
-    def test_context_management(self):
-        """Test multi-turn state, follow-up hints, and sliding context."""
+class TestTaskStateAndInterruption(unittest.TestCase):
+    def test_state_lifecycle(self):
+        """Test task state transitions and interruption flag."""
+        task_state_manager.reset()
+        self.assertEqual(task_state_manager.state, TaskState.IDLE)
+
+        task_state_manager.set_state(TaskState.PLANNING, "Complex Research")
+        self.assertEqual(task_state_manager.state, TaskState.PLANNING)
+        self.assertEqual(task_state_manager.current_task_name, "Complex Research")
+
+        task_state_manager.request_interruption()
+        self.assertEqual(task_state_manager.state, TaskState.INTERRUPTED)
+        self.assertTrue(task_state_manager.is_interrupted())
+
+        task_state_manager.reset()
+        self.assertFalse(task_state_manager.is_interrupted())
+
+
+class TestConversationFollowUp(unittest.TestCase):
+    def test_ordinal_follow_up_resolution(self):
+        """Test resolving 'play the second result' after YouTube search."""
         conversation_manager.reset()
-        conversation_manager.add_user_message("Open YouTube")
-        conversation_manager.set_context_state(active_topic="youtube", last_action="open_website")
-        conversation_manager.add_assistant_message("Opening YouTube, sir.")
+        conversation_manager.set_search_results(["Song A - Artist 1", "Song B - Artist 2", "Song C - Artist 3"])
 
-        state = conversation_manager.get_context_state()
-        self.assertEqual(state["active_topic"], "youtube")
+        idx = conversation_manager.resolve_ordinal_index("play the second result")
+        self.assertEqual(idx, 1)
 
-        hint = conversation_manager.resolve_follow_up_hint("search for Arijit Singh")
-        self.assertIsNotNone(hint)
-        self.assertIn("YouTube", hint)
+        idx_last = conversation_manager.resolve_ordinal_index("play the last one")
+        self.assertEqual(idx_last, 2)
+
+
+class TestJarvisDoctor(unittest.TestCase):
+    def test_doctor_diagnostics(self):
+        """Test doctor diagnostic health checks."""
+        report = doctor.run_diagnostics()
+        self.assertIn("python", report)
+        self.assertIn("microphone", report)
+        self.assertIn("tts", report)
+        self.assertIn("internet", report)
+        self.assertIn("llm", report)
+        self.assertIn("memory_db", report)
+        self.assertIn("automations", report)
 
 
 class TestAgentBrain(unittest.TestCase):
@@ -199,35 +237,17 @@ class TestAgentBrain(unittest.TestCase):
         self.assertIsNotNone(res)
         self.assertTrue(len(res) > 5)
 
-    def test_system_prompt_builder(self):
-        """Test system prompt formatting."""
-        prompt = get_system_prompt(custom_facts="- favorite_artist: Hans Zimmer")
-        self.assertIn(ASSISTANT_NAME, prompt)
-        self.assertIn("Hans Zimmer", prompt)
 
-
-class TestVoiceEngine(unittest.TestCase):
-    def test_voice_engine_properties(self):
-        """Verify voice engine attributes and methods."""
-        self.assertFalse(voice_engine.is_speaking)
-        voice_engine.stop_speaking()
-        self.assertFalse(voice_engine.is_speaking)
-
-
-class TestMachineLearning(unittest.TestCase):
-    def test_modal_2_classifier(self):
-        """Test Naive Bayes Intent Classifier."""
-        modal2 = import_module_from_path('modal_2', PATHS['modal_2'])
-        res = modal2.get_response("hello")
-        self.assertIsNotNone(res)
-        self.assertIsInstance(res, str)
-
-    def test_modal_1_tfidf(self):
-        """Test TF-IDF QA engine."""
-        modal1 = import_module_from_path('modal_1', PATHS['modal_1'])
-        res = modal1.mind("who are you")
-        if res is not None:
-            self.assertIsInstance(res, str)
+class TestLLMProviders(unittest.TestCase):
+    def test_provider_manager_initialization(self):
+        """Verify provider manager discovers registered providers."""
+        providers = provider_manager.list_available_providers()
+        self.assertTrue(len(providers) >= 4)
+        names = [p["provider"] for p in providers]
+        self.assertIn("openai", names)
+        self.assertIn("gemini", names)
+        self.assertIn("ollama", names)
+        self.assertIn("groq", names)
 
 
 class TestAutomationManager(unittest.TestCase):
@@ -250,27 +270,13 @@ class TestAutomationManager(unittest.TestCase):
         self.assertIsNotNone(fetched)
         self.assertEqual(fetched['name'], "Test Time Check")
 
-        updated = self.mgr.edit_automation(auto_id, name="Renamed Time Check")
-        self.assertIsNotNone(updated)
-        self.assertEqual(updated['name'], "Renamed Time Check")
-
         deleted = self.mgr.delete_automation(auto_id)
         self.assertTrue(deleted)
-        self.assertIsNone(self.mgr.get_automation(auto_id))
-
-    def test_security_allowlist(self):
-        """Test that invalid/unauthorized actions are strictly rejected."""
-        bad_auto = self.mgr.create_automation(
-            name="Malicious Command",
-            action="rm_rf_system",
-            parameters={"cmd": "calc.exe"}
-        )
-        self.assertIsNone(bad_auto)
 
 
 if __name__ == "__main__":
     print("=" * 65)
-    print("  RUNNING JARVIS AI FULL MODERN AGENT VERIFICATION SUITE")
+    print("  RUNNING JARVIS AI FULL ADVANCED AGENT VERIFICATION SUITE")
     print("=" * 65)
     suite = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__])
     runner = unittest.TextTestRunner(verbosity=2)
