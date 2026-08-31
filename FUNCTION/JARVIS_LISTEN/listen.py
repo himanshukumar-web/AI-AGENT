@@ -65,6 +65,21 @@ def _record_with_sounddevice(duration=5, sample_rate=16000):
         return None
 
 
+# Import wake words safely
+try:
+    from config import WAKE_WORDS
+except Exception:
+    WAKE_WORDS = ["jarvis", "hey jarvis", "ok jarvis", "okay jarvis"]
+
+
+def has_wake_word(text: str) -> bool:
+    """Check if the recognized voice command contains any configured wake words."""
+    if not text:
+        return False
+    t = text.lower()
+    return any(w in t for w in WAKE_WORDS)
+
+
 def listen():
     """
     Listen to user voice input.
@@ -80,7 +95,7 @@ def listen():
     if HAS_PYAUDIO:
         try:
             with sr.Microphone() as source:
-                recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                recognizer.adjust_for_ambient_noise(source, duration=0.4)
                 print(Fore.LIGHTGREEN_EX + "  Listening (PyAudio)...", end="\r", flush=True)
                 audio = recognizer.listen(source, timeout=6, phrase_time_limit=10)
                 print(Fore.LIGHTYELLOW_EX + "  Recognizing speech...", end="\r", flush=True)
@@ -93,7 +108,7 @@ def listen():
             return ""
         except sr.UnknownValueError:
             return ""
-        except Exception as e:
+        except Exception:
             pass  # Fall through to sounddevice
 
     # Method 2: SoundDevice backend (Native Python 3.14 on Windows)
@@ -116,7 +131,7 @@ def listen():
         except sr.RequestError as e:
             print(Fore.YELLOW + f"  Speech API network error: {e}")
             return ""
-        except Exception as e:
+        except Exception:
             return ""
 
     # Method 3: Fallback when neither audio capture is functional
@@ -133,3 +148,4 @@ if __name__ == "__main__":
     print("Testing JARVIS Listening module...")
     result = listen()
     print(f"Result: '{result}'")
+

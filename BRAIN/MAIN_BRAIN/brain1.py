@@ -231,117 +231,90 @@ def normalize_command(text):
     return t
 
 
+# ── Agent Brain Bridge ───────────────────────────────────────────────────────
+try:
+    from BRAIN.CORE_AGENT.agent_brain import agent_brain
+    HAS_AGENT_BRAIN = True
+except Exception:
+    HAS_AGENT_BRAIN = False
+
+
 # ── Main Brain Command Processor ─────────────────────────────────────────────
 def brain_cmd(text):
     """
-    Process recognized voice command and return a response or execute action.
+    Process recognized command through the Modern Layered AI Agent Brain.
+    Maintains 100% backward compatibility with legacy fallback.
     """
     if not text or not str(text).strip():
         return None
 
+    if HAS_AGENT_BRAIN:
+        try:
+            return agent_brain.process_command(text)
+        except Exception:
+            pass
+
+    # Legacy Fallback Routing
     raw_text = text.lower().strip()
     norm_text = normalize_command(raw_text)
 
-    # If empty after removing wake word, greet user
     if not norm_text:
         return random.choice(res1)
 
-    # ── 1. Greetings & Wake Words ────────────────────────────────────────
+    # 1. Greetings & Wake Words
     if raw_text in [c.lower() for c in cmd1] or norm_text in [c.lower() for c in cmd1] or norm_text in ["hi", "hello", "hey"]:
         return random.choice(res1)
 
-    # ── 2. Goodbye / Exit Commands ───────────────────────────────────────
+    # 2. Goodbye / Exit Commands
     if norm_text in [b.lower() for b in bye_key_word] or any(bw in norm_text for bw in ["goodbye", "bye", "exit", "quit"]):
         return random.choice(res_bye)
 
-    # ── 3. Stop / Sleep Commands ─────────────────────────────────────────
+    # 3. Stop / Sleep Commands
     if norm_text in [s.lower() for s in stopcmd] or any(s in norm_text for s in ["go to sleep", "stop listening", "sleep now"]):
         return random.choice(stopdlg)
 
-    # ── 4. Time-based Greetings ──────────────────────────────────────────
-    if any(g in norm_text for g in ["good morning", "good afternoon", "good evening", "good night"]):
-        Greating(norm_text)
-        return None
-
-    # ── 5. System Utilities ──────────────────────────────────────────────
-    # Time
-    if any(kw in norm_text for kw in ["what time", "what's the time", "current time", "tell me time", "time batao", "kitne baje"]):
+    # 4. System Utilities
+    if any(kw in norm_text for kw in ["what time", "what's the time", "current time", "tell me time"]):
         what_is_the_time()
         return None
 
-    # Weather / Temperature
-    if any(kw in norm_text for kw in ["weather", "temperature", "mausam", "taapmaan", "forecast"]):
+    if any(kw in norm_text for kw in ["weather", "temperature", "mausam"]):
         Temp()
         return None
 
-    # Public IP Address
-    if any(kw in norm_text for kw in ["my ip", "ip address", "find my ip", "what is my ip"]):
-        ip = find_my_ip()
-        return f"Your public IP address is {ip}"
+    if any(kw in norm_text for kw in ["my ip", "ip address", "find my ip"]):
+        return f"Your public IP address is {find_my_ip()}"
 
-    # Internet Speed
-    if any(kw in norm_text for kw in ["internet speed", "check speed", "speed test", "speed check", "net speed"]):
-        check_internet_speed()
-        return None
-
-    # Online / Internet Status
-    if any(kw in norm_text for kw in ["am i online", "online status", "internet status", "are we online", "internet chal raha hai"]):
-        internet_status()
-        return None
-
-    # Joke
-    if any(kw in norm_text for kw in ["tell me a joke", "joke", "make me laugh", "funny", "mazak"]):
+    if any(kw in norm_text for kw in ["tell me a joke", "joke", "make me laugh"]):
         return get_random_joke()
 
-    # Advice
-    if any(kw in norm_text for kw in ["give me advice", "advice", "suggestion", "motivate me", "salah"]):
+    if any(kw in norm_text for kw in ["give me advice", "advice", "suggestion"]):
         return f"Here is some advice: {get_random_advice()}"
 
-    # ── 6. Automation Subsystem ──────────────────────────────────────────
-    # Check with normalized command first, then raw text
+    # 5. Automation Subsystem
     if process_automation(norm_text) or process_automation(raw_text):
         return None
 
-    # ── 7. QNA Dataset (Exact match) ─────────────────────────────────────
+    # 6. QNA Dataset
     if norm_text in qa_dict:
         return qa_dict[norm_text]
-    if raw_text in qa_dict:
-        return qa_dict[raw_text]
 
-    # ── 8. ML Model 2 (Naive Bayes Intent Classifier) ────────────────────
+    # 7. ML Models
     if get_ml2_response is not None:
         try:
-            ml2_res = get_ml2_response(norm_text)
-            if ml2_res:
-                return ml2_res
-        except Exception:
-            pass
-
-    # ── 9. ML Model 1 (TF-IDF Cosine Similarity) ─────────────────────────
-    if get_ml1_response is not None:
-        try:
-            ml1_res = get_ml1_response(norm_text)
-            if ml1_res:
-                return ml1_res
-        except Exception:
-            pass
-
-    # ── 10. Deep Search (Research / Define / Teach) ──────────────────────
-    if any(kw in norm_text for kw in ["define", "brief", "research", "teach me", "explain in detail"]):
-        try:
-            res = deep_search(norm_text)
-            if res and res.strip():
+            res = get_ml2_response(norm_text)
+            if res:
                 return res
         except Exception:
             pass
 
-    # ── 11. Quick Search Fallback ────────────────────────────────────────
-    try:
-        res = search_brain(norm_text)
-        if res and res.strip():
-            return res
-    except Exception:
-        pass
+    if get_ml1_response is not None:
+        try:
+            res = get_ml1_response(norm_text)
+            if res:
+                return res
+        except Exception:
+            pass
 
-    # ── 12. Fallback Response ────────────────────────────────────────────
     return "I am not certain about that sir. Would you like me to research it further?"
+

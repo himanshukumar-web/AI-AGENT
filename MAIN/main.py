@@ -26,9 +26,9 @@ if project_root not in sys.path:
 from config import PATHS, import_module_from_path, USER_NAME, ASSISTANT_NAME
 
 # ── Load Core Modules ────────────────────────────────────────────────────────
-print(Fore.CYAN + "=" * 55)
-print(Fore.CYAN + f"  {ASSISTANT_NAME.upper()} AI — Initializing Subsystems (Python 3.14.7)")
-print(Fore.CYAN + "=" * 55)
+print(Fore.CYAN + "=" * 60)
+print(Fore.CYAN + f"  {ASSISTANT_NAME.upper()} AI — Modern Agent Initializing (Python 3.14.7)")
+print(Fore.CYAN + "=" * 60)
 
 try:
     listen_module = import_module_from_path('listen', PATHS['listen'])
@@ -49,10 +49,17 @@ except Exception as e:
 try:
     brain1_module = import_module_from_path('brain1', PATHS['brain1'])
     brain_cmd = brain1_module.brain_cmd
-    print(Fore.GREEN + "  [OK] Intelligence & Intent Brain Loaded")
+    print(Fore.GREEN + "  [OK] Modern Agent Intelligence Brain Loaded")
 except Exception as e:
     print(Fore.RED + f"  [FAIL] Intelligence Brain: {e}")
     brain_cmd = lambda x: f"I heard '{x}' but my neural core is offline."
+
+try:
+    from BRAIN.LLM.provider_manager import provider_manager
+    active_prov = provider_manager.get_active_provider()
+    print(Fore.GREEN + f"  [OK] LLM Provider: {active_prov.provider_name.upper()} (Model: {active_prov.model_name})")
+except Exception as e:
+    print(Fore.YELLOW + f"  [WARN] LLM Provider Manager: {e}")
 
 try:
     battery_alert_path = os.path.join(project_root, 'AUTOMATION', 'JARVIS_BATTERY_ANIMATION', 'battery_alert.py')
@@ -89,7 +96,7 @@ except Exception as e:
     print(Fore.YELLOW + f"  [WARN] Automation Manager: {e}")
     start_scheduler = lambda: None
 
-print(Fore.CYAN + "=" * 55)
+print(Fore.CYAN + "=" * 60)
 
 
 # ── Background Services ─────────────────────────────────────────────────────

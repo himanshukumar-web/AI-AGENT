@@ -43,4 +43,7 @@ DATA/chromedriver.exe
 *.log
 DATA/automation_logs.json
 DATA/automations.json
+DATA/jarvis_memory.db
+DATA/*.db
 DATA/MUSIC/
+

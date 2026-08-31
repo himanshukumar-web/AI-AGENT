@@ -24,12 +24,43 @@ WEATHER_CITY = os.environ.get('WEATHER_CITY', 'New Delhi, India')
 USER_NAME = os.environ.get('JARVIS_USER_NAME', 'Sir')
 ASSISTANT_NAME = os.environ.get('JARVIS_NAME', 'Jarvis')
 
+# ── LLM Configuration ────────────────────────────────────────────────────────
+LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'auto').lower().strip()  # auto, openai, gemini, ollama, groq
+LLM_MODEL = os.environ.get('LLM_MODEL', '').strip()
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '').strip()
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '').strip()
+OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434').strip()
+OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'llama3:latest').strip()
+LLM_TEMPERATURE = float(os.environ.get('LLM_TEMPERATURE', '0.7'))
+LLM_MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', '512'))
+LLM_ROUTING_MODE = os.environ.get('LLM_ROUTING_MODE', 'hybrid').lower().strip()  # hybrid, fast_first, llm_only, offline_only
+
+# ── Memory & Safety Configuration ────────────────────────────────────────────
+MEMORY_DB_PATH = os.environ.get('MEMORY_DB_PATH', os.path.join(PROJECT_ROOT, 'DATA', 'jarvis_memory.db'))
+MAX_CONTEXT_TURNS = int(os.environ.get('MAX_CONTEXT_TURNS', '10'))
+CONFIRMATION_MODE = os.environ.get('CONFIRMATION_MODE', 'ask_high_risk').lower().strip()  # ask_high_risk, strict, auto_allow
+
+# ── Voice Configuration ──────────────────────────────────────────────────────
+WAKE_WORDS = [w.strip().lower() for w in os.environ.get('WAKE_WORDS', 'jarvis,hey jarvis,ok jarvis,okay jarvis,hello jarvis').split(',') if w.strip()]
+TTS_VOICE_RATE = int(os.environ.get('TTS_VOICE_RATE', '180'))
+TTS_VOICE_VOLUME = float(os.environ.get('TTS_VOICE_VOLUME', '1.0'))
+ENABLE_STREAMING = os.environ.get('ENABLE_STREAMING', 'true').lower() in ('true', '1', 'yes')
+
 # ── Common Paths ─────────────────────────────────────────────────────────────
 PATHS = {
     'speak': os.path.join(PROJECT_ROOT, 'FUNCTION', 'JARVIS_SPEAK', 'speak.py'),
     'listen': os.path.join(PROJECT_ROOT, 'FUNCTION', 'JARVIS_LISTEN', 'listen.py'),
+    'voice_engine': os.path.join(PROJECT_ROOT, 'VOICE', 'voice_engine.py'),
     'dlg': os.path.join(PROJECT_ROOT, 'DATA', 'DLG.py'),
     'brain1': os.path.join(PROJECT_ROOT, 'BRAIN', 'MAIN_BRAIN', 'brain1.py'),
+    'agent_brain': os.path.join(PROJECT_ROOT, 'BRAIN', 'CORE_AGENT', 'agent_brain.py'),
+    'system_prompt': os.path.join(PROJECT_ROOT, 'BRAIN', 'PROMPTS', 'system_prompt.py'),
+    'provider_manager': os.path.join(PROJECT_ROOT, 'BRAIN', 'LLM', 'provider_manager.py'),
+    'tool_registry': os.path.join(PROJECT_ROOT, 'BRAIN', 'TOOLS', 'tool_registry.py'),
+    'safety_manager': os.path.join(PROJECT_ROOT, 'BRAIN', 'TOOLS', 'safety_manager.py'),
+    'conversation_manager': os.path.join(PROJECT_ROOT, 'BRAIN', 'MEMORY', 'conversation_manager.py'),
+    'memory_manager': os.path.join(PROJECT_ROOT, 'BRAIN', 'MEMORY', 'memory_manager.py'),
     'qna_txt': os.path.join(PROJECT_ROOT, 'BRAIN', 'BRAIN_DATA', 'QNA_DATA', 'qna.txt'),
     'qna_json': os.path.join(PROJECT_ROOT, 'BRAIN', 'BRAIN_DATA', 'QNA_DATA', 'qna.json'),
     'automations_db': os.path.join(PROJECT_ROOT, 'DATA', 'automations.json'),
@@ -51,3 +82,4 @@ def import_module_from_path(module_name, file_path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
