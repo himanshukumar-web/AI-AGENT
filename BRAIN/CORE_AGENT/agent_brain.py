@@ -178,6 +178,22 @@ class AgentBrain:
                 summary = ", ".join([f"{a['tool_name']} ({'OK' if a['success'] else 'Failed'})" for a in actions[:3]])
                 return f"Recent actions: {summary}."
 
+        # 6. Capabilities & Skills ("what can you do?")
+        if norm_text in ["what can you do", "what are your capabilities", "capabilities", "what are your skills", "show skills", "skills", "help"]:
+            try:
+                from SKILLS.skill_registry import skill_registry
+                return skill_registry.get_capabilities_summary()
+            except Exception:
+                return "I can help you with web browsing, YouTube playback, system controls, automations, memory, and multi-step research."
+
+        # 7. Operational Status ("Jarvis, status")
+        if norm_text in ["status", "jarvis status", "system status", "system summary"]:
+            res = tool_registry.execute_tool("system.status", user_request=raw_text)
+            if res.get("success"):
+                return res["data"].get("formatted", "System status is healthy and operational.")
+            return "JARVIS systems are online and operational."
+
+
         # 6. Time
         if norm_text in ["what time is it", "what is the time", "current time", "tell me time", "time batao", "kitne baje", "kya time hai"]:
             res = tool_registry.execute_tool("system.time", user_request=raw_text)

@@ -340,7 +340,35 @@ class TestVoice3System(unittest.TestCase):
         self.assertIn("Python 3.14", cleaned)
 
 
+class TestSkillRegistry(unittest.TestCase):
+    def test_skills_registration_and_listing(self):
+        """Test skill registry discovers built-in domain skills."""
+        from SKILLS.skill_registry import skill_registry
+        skills = skill_registry.list(only_enabled=True)
+        self.assertGreaterEqual(len(skills), 5)
+        names = [s["name"] for s in skills]
+        self.assertIn("system", names)
+        self.assertIn("youtube", names)
+        self.assertIn("browser", names)
+        self.assertIn("weather", names)
+        self.assertIn("automation", names)
+        self.assertIn("memory", names)
+
+    def test_skill_tools_and_capabilities(self):
+        """Test skill tools aggregation and capability summary introspection."""
+        from SKILLS.skill_registry import skill_registry
+        tools = skill_registry.get_all_tools()
+        self.assertIn("system.time", tools)
+        self.assertIn("youtube.play", tools)
+        self.assertIn("weather.get", tools)
+
+        summary = skill_registry.get_capabilities_summary()
+        self.assertIn("System", summary)
+        self.assertIn("Youtube", summary)
+
+
 if __name__ == "__main__":
+
     print("=" * 65)
     print("  RUNNING JARVIS AI FULL ADVANCED AGENT VERIFICATION SUITE")
     print("=" * 65)

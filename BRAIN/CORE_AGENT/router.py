@@ -112,10 +112,13 @@ class IntelligentRouter:
             "open notepad", "notepad kholo", "open calculator", "calc kholo",
             "run diagnostics", "diagnostics", "check health", "doctor",
             "show my recent actions", "show recent actions", "recent actions", "action history",
+            "what can you do", "what are your capabilities", "capabilities", "what are your skills", "show skills", "skills",
+            "status", "jarvis status", "system status",
             "hello", "hi", "hey jarvis", "namaste", "goodbye", "bye", "exit", "quit",
         ]
         if any(t == sp or t.startswith(sp + " ") for sp in simple_patterns):
             return RouteCategory.SIMPLE_COMMAND, {"direct": True}
+
 
         # 7. Check for Questions
         if t.startswith(("what is", "who is", "where is", "when did", "how does", "why is", "which is", "can you explain", "kya hai", "kaun hai")):
