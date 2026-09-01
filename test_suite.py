@@ -262,6 +262,14 @@ class TestLLMProviders(unittest.TestCase):
         self.assertIn("ollama", names)
         self.assertIn("groq", names)
 
+    def test_offline_fallback_generation(self):
+        """Verify generation fallback when running without cloud keys."""
+        resp = provider_manager.generate_with_fallback("Hello Jarvis, how are you?")
+        self.assertIsNotNone(resp)
+        self.assertIsInstance(resp.text, str)
+        self.assertTrue(len(resp.text) > 0)
+
+
 
 class TestAutomationManager(unittest.TestCase):
     @classmethod

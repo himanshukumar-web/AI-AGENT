@@ -26,21 +26,34 @@ class OllamaProvider(BaseLLMProvider):
         return "llama3:latest"
 
     def is_available(self) -> bool:
-        """Check if local Ollama server is running."""
+        """Check if local Ollama server is running and has installed models."""
         try:
             resp = requests.get(f"{self.base_url}/api/tags", timeout=1.5)
-            return resp.status_code == 200
+            if resp.status_code != 200:
+                return False
+            data = resp.json()
+            models = [m.get("name", "") for m in data.get("models", [])]
+            if not models:
+                return False
+            # If current model matches or if we can auto-select the first installed model
+            if any(self.model_name in m or m.startswith(self.model_name.split(":")[0]) for m in models):
+                return True
+            # Auto-adapt to first available model if configured model not pulled
+            self.model_name = models[0]
+            return True
         except Exception:
             return False
 
     def get_model_info(self) -> Dict[str, Any]:
+        avail = self.is_available()
         return {
             "provider": self.provider_name,
             "model": self.model_name,
             "base_url": self.base_url,
-            "available": self.is_available(),
+            "available": avail,
             "offline": True,
         }
+
 
     def _build_messages(self, prompt: str, system_prompt: str, history: Optional[List[Dict[str, str]]]) -> List[Dict[str, str]]:
         messages = []
