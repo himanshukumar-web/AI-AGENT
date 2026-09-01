@@ -237,6 +237,19 @@ class TestAgentBrain(unittest.TestCase):
         self.assertIsNotNone(res)
         self.assertTrue(len(res) > 5)
 
+    def test_fast_path_weather(self):
+        """Test fast path weather."""
+        res = self.brain_mod.brain_cmd("how is the weather")
+        self.assertIsNotNone(res)
+        self.assertTrue("weather" in res.lower() or "currently" in res.lower() or "°c" in res.lower())
+
+    def test_hinglish_brain_routing(self):
+        """Test Hinglish command direct execution in Brain."""
+        res = self.brain_mod.brain_cmd("time batao")
+        self.assertIsNotNone(res)
+        self.assertTrue("time is" in res.lower())
+
+
 
 class TestLLMProviders(unittest.TestCase):
     def test_provider_manager_initialization(self):

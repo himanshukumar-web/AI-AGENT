@@ -1,6 +1,7 @@
 """
-JARVIS AI — Intelligent Intent & Task Router
+JARVIS AI — Intelligent Intent & Task Router (Brain 3.0)
 Categorizes user requests to direct execution pipelines without unnecessary LLM latency.
+Preserves fast local processing for deterministic commands and delegates complex reasoning.
 """
 
 from enum import Enum
@@ -22,18 +23,23 @@ class RouteCategory(Enum):
 class IntelligentRouter:
     """Classifies user requests into optimal processing channels."""
 
-    INTERRUPT_KEYWORDS = ["stop", "cancel", "cancel that", "jarvis stop", "chup", "ruko", "stop now", "abort"]
+    INTERRUPT_KEYWORDS = [
+        "stop", "cancel", "cancel that", "jarvis stop", "chup", "ruko",
+        "roko", "stop now", "abort", "shut up", "quiet", "silence", "stop speaking"
+    ]
 
     MEMORY_REMEMBER_PATTERNS = [
         r"^remember\s+that\s+(.*)",
         r"^remember\s+(.*)",
         r"^save\s+preference\s+(.*)",
+        r"^yaad\s+rakho\s+ki\s+(.*)",
         r"^yaad\s+rakho\s+(.*)",
     ]
 
     MEMORY_FORGET_PATTERNS = [
         r"^forget\s+what\s+i\s+told\s+you\s+about\s+(.*)",
         r"^forget\s+about\s+(.*)",
+        r"^forget\s+preference\s+(.*)",
         r"^forget\s+(.*)",
         r"^bhool\s+jao\s+(.*)",
     ]
@@ -43,6 +49,7 @@ class IntelligentRouter:
         r"^show\s+my\s+preferences.*",
         r"^what\s+are\s+my\s+preferences.*",
         r"^list\s+my\s+memories.*",
+        r"^kya\s+yaad\s+hai.*",
     ]
 
     MULTI_STEP_INDICATORS = [
@@ -84,29 +91,34 @@ class IntelligentRouter:
             return RouteCategory.MULTI_STEP_TASK, {"raw_prompt": text}
 
         # 4. Check for Custom Automations
-        if any(w in t for w in ["create automation", "new automation", "list automation", "show automation", "delete automation", "disable automation", "run automation", "my automation", "remind me every", "every morning at", "every day at"]):
+        if any(w in t for w in ["create automation", "new automation", "list automation", "show automation", "show my automations", "delete automation", "disable automation", "run automation", "my automation", "remind me every", "every morning at", "every day at", "subah 9 baje"]):
             return RouteCategory.AUTOMATION, {"command": text}
 
         # 5. Check for Search / Deep Research
         if any(t.startswith(kw) for kw in ["define ", "brief ", "research ", "teach me ", "deep search "]):
             return RouteCategory.SEARCH_RESEARCH, {"query": t}
 
-        # 6. Check for Simple Deterministic Commands
+        # 6. Check for Simple Deterministic Commands (English & Hinglish)
         simple_patterns = [
-            "what time", "what's the time", "current time", "tell me time",
-            "battery", "battery percentage", "battery status", "check battery",
-            "tell me a joke", "joke", "make me laugh",
-            "give me advice", "advice", "suggestion",
-            "my ip", "ip address", "what is my ip",
-            "internet status", "am i online",
-            "open youtube", "open google", "open notepad", "open calculator",
-            "hello", "hi", "hey jarvis", "goodbye", "bye", "exit", "quit",
+            "what time", "what's the time", "current time", "tell me time", "time batao", "kitne baje",
+            "battery", "battery percentage", "battery status", "check battery", "battery kitni hai",
+            "weather", "how is the weather", "tell me the weather", "mausam batao", "weather batao",
+            "tell me a joke", "joke", "make me laugh", "joke sunao",
+            "give me advice", "advice", "suggestion", "motivate me", "advice do",
+            "my ip", "ip address", "what is my ip", "find my ip",
+            "internet status", "am i online", "check internet",
+            "open youtube", "youtube open", "youtube kholo",
+            "open google", "google open", "google kholo",
+            "open notepad", "notepad kholo", "open calculator", "calc kholo",
+            "run diagnostics", "diagnostics", "check health", "doctor",
+            "show my recent actions", "show recent actions", "recent actions", "action history",
+            "hello", "hi", "hey jarvis", "namaste", "goodbye", "bye", "exit", "quit",
         ]
         if any(t == sp or t.startswith(sp + " ") for sp in simple_patterns):
             return RouteCategory.SIMPLE_COMMAND, {"direct": True}
 
         # 7. Check for Questions
-        if t.startswith(("what is", "who is", "where is", "when did", "how does", "why is", "which is", "can you explain")):
+        if t.startswith(("what is", "who is", "where is", "when did", "how does", "why is", "which is", "can you explain", "kya hai", "kaun hai")):
             return RouteCategory.QUESTION_KNOWLEDGE, {"question": text}
 
         # 8. Default to Conversational LLM reasoning
@@ -115,3 +127,4 @@ class IntelligentRouter:
 
 # Global singleton instance
 intelligent_router = IntelligentRouter()
+

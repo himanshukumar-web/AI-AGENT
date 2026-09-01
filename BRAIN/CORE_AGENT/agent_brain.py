@@ -152,74 +152,121 @@ class AgentBrain:
             return random.choice(self.res1)
 
         # 1. Greetings
-        if raw_text in [c.lower() for c in self.cmd1] or norm_text in [c.lower() for c in self.cmd1] or norm_text in ["hi", "hello", "hey"]:
+        if raw_text in [c.lower() for c in self.cmd1] or norm_text in [c.lower() for c in self.cmd1] or norm_text in ["hi", "hello", "hey", "namaste"]:
             return random.choice(self.res1)
 
         # 2. Goodbye / Exit
-        if norm_text in [b.lower() for b in self.bye_key_word] or any(bw in norm_text for bw in ["goodbye", "bye", "exit", "quit"]):
+        if norm_text in [b.lower() for b in self.bye_key_word] or any(bw in norm_text for bw in ["goodbye", "bye", "exit", "quit", "alvida"]):
             return random.choice(self.res_bye)
 
         # 3. Sleep
-        if norm_text in [s.lower() for s in self.stopcmd] or any(s in norm_text for s in ["go to sleep", "stop listening"]):
+        if norm_text in [s.lower() for s in self.stopcmd] or any(s in norm_text for s in ["go to sleep", "stop listening", "so jao"]):
             return random.choice(self.stopdlg)
 
         # 4. Diagnostics command
         if norm_text in ["run diagnostics", "diagnostics", "check health", "doctor", "health check"]:
-            from BRAIN.UTILS.diagnostics import doctor
-            doctor.print_report()
-            return "All diagnostic checks have been performed and printed to your console, sir."
+            res = tool_registry.execute_tool("system.diagnostics", user_request=raw_text)
+            return "Diagnostics check completed and displayed on your console."
 
-        # 5. Time
-        if norm_text in ["what time is it", "what is the time", "current time", "tell me time", "time batao", "kitne baje"]:
+        # 5. Recent Actions
+        if norm_text in ["show my recent actions", "show recent actions", "recent actions", "action history", "show actions"]:
+            res = tool_registry.execute_tool("action.history", {"limit": 5}, user_request=raw_text)
+            if res.get("success"):
+                actions = res["data"]["actions"]
+                if not actions:
+                    return "No recent actions recorded yet."
+                summary = ", ".join([f"{a['tool_name']} ({'OK' if a['success'] else 'Failed'})" for a in actions[:3]])
+                return f"Recent actions: {summary}."
+
+        # 6. Time
+        if norm_text in ["what time is it", "what is the time", "current time", "tell me time", "time batao", "kitne baje", "kya time hai"]:
             res = tool_registry.execute_tool("system.time", user_request=raw_text)
             if res.get("success"):
                 return f"The current time is {res['data']['time']}."
 
-        # 6. Battery
-        if norm_text in ["battery", "battery status", "battery percentage", "check battery", "battery kitni hai"]:
+        # 7. Battery
+        if norm_text in ["battery", "battery status", "battery percentage", "check battery", "battery kitni hai", "what is the battery percentage"]:
             res = tool_registry.execute_tool("system.battery", user_request=raw_text)
             if res.get("success"):
                 return res['data']['formatted']
 
-        # 7. Joke
-        if norm_text in ["tell me a joke", "joke", "make me laugh", "funny"]:
+        # 8. Weather
+        if norm_text in ["weather", "how is the weather", "tell me the weather", "mausam batao", "weather batao", "check weather", "how's the weather"]:
+            res = tool_registry.execute_tool("weather.get", user_request=raw_text)
+            if res.get("success"):
+                return f"It is currently {res['data']['formatted']}."
+
+        # 9. Joke
+        if norm_text in ["tell me a joke", "joke", "make me laugh", "funny", "joke sunao"]:
             res = tool_registry.execute_tool("system.joke", user_request=raw_text)
             if res.get("success"):
                 return res['data']['joke']
 
-        # 8. Advice
-        if norm_text in ["give me advice", "advice", "suggestion", "motivate me"]:
+        # 10. Advice
+        if norm_text in ["give me advice", "advice", "suggestion", "motivate me", "advice do"]:
             res = tool_registry.execute_tool("system.advice", user_request=raw_text)
             if res.get("success"):
-                return f"Here is some advice: {res['data']['advice']}"
+                return f"Here is a thought: {res['data']['advice']}"
 
-        # 9. IP Address
+        # 11. IP Address & Internet
         if norm_text in ["my ip", "ip address", "find my ip", "what is my ip"]:
             res = tool_registry.execute_tool("system.ip", user_request=raw_text)
             if res.get("success"):
                 return f"Your public IP is {res['data']['ip']}."
 
-        # 10. Direct Single App / Website Launch
-        if norm_text == "open youtube":
+        if norm_text in ["internet status", "am i online", "check internet", "internet"]:
+            res = tool_registry.execute_tool("system.internet", user_request=raw_text)
+            if res.get("success"):
+                return res['data']['status']
+
+        # 12. Direct Website Launch
+        if norm_text in ["open youtube", "youtube open", "youtube kholo"]:
             tool_registry.execute_tool("browser.open", {"url": "youtube.com"}, user_request=raw_text)
             conversation_manager.set_context_state(active_topic="youtube", last_action="browser.open")
-            return "Opening YouTube, sir."
+            return "Opening YouTube."
 
-        if norm_text == "open google":
+        if norm_text in ["open google", "google open", "google kholo"]:
             tool_registry.execute_tool("browser.open", {"url": "google.com"}, user_request=raw_text)
             conversation_manager.set_context_state(active_topic="browser", last_action="browser.open")
-            return "Opening Google, sir."
+            return "Opening Google."
 
-        if norm_text.startswith("open notepad"):
+        if norm_text in ["open github", "github open", "github kholo"]:
+            tool_registry.execute_tool("browser.open", {"url": "github.com"}, user_request=raw_text)
+            conversation_manager.set_context_state(active_topic="browser", last_action="browser.open")
+            return "Opening GitHub."
+
+        # 13. Application Launching
+        if norm_text.startswith("open notepad") or norm_text == "notepad kholo":
             tool_registry.execute_tool("system.launch_app", {"app_name": "notepad"}, user_request=raw_text)
-            return "Opening Notepad, sir."
+            return "Opening Notepad."
 
-        if norm_text.startswith("open calculator"):
+        if norm_text.startswith("open calculator") or norm_text in ["calc kholo", "open calc"]:
             tool_registry.execute_tool("system.launch_app", {"app_name": "calc"}, user_request=raw_text)
-            return "Opening Calculator, sir."
+            return "Opening Calculator."
 
-        # 11. Contextual Ordinal Follow-up (e.g. "play the second result" / "play the 2nd one")
-        if any(w in norm_text for w in ["play the", "play second", "play 2nd", "play first", "play 1st", "play third"]):
+        # 14. YouTube Search & Controls
+        if norm_text.startswith(("search youtube for ", "search on youtube for ", "youtube search ")):
+            query = norm_text.replace("search youtube for ", "").replace("search on youtube for ", "").replace("youtube search ", "").strip()
+            res = tool_registry.execute_tool("youtube.search", {"query": query}, user_request=raw_text)
+            if res.get("success"):
+                return f"Searching YouTube for {query}."
+
+        if norm_text in ["pause youtube", "resume youtube", "pause video", "resume video", "play pause"]:
+            tool_registry.execute_tool("youtube.pause", user_request=raw_text)
+            return "Toggled playback."
+
+        # 15. Automations List
+        if norm_text in ["show my automations", "show automations", "list automations", "list my automations", "my automations"]:
+            res = tool_registry.execute_tool("automation.list", user_request=raw_text)
+            if res.get("success"):
+                autos = res["data"]["automations"]
+                if not autos:
+                    return "You don't have any configured automations yet."
+                names = ", ".join([f"{a['name']} ({a['schedule_time'] or 'Manual'})" for a in autos[:4]])
+                return f"Your automations: {names}."
+
+        # 16. Contextual Ordinal Follow-up (e.g. "play the second result" / "play the 2nd one")
+        if any(w in norm_text for w in ["play the", "play second", "play 2nd", "play first", "play 1st", "play third", "play 3rd"]):
             idx = conversation_manager.resolve_ordinal_index(norm_text)
             if idx is not None:
                 search_results = conversation_manager.get_search_results()
@@ -228,11 +275,12 @@ class AgentBrain:
                     tool_registry.execute_tool("youtube.play", {"query": target_song}, user_request=raw_text)
                     return f"Playing option {idx + 1}: {target_song}."
 
-        # 12. Exact QNA Dataset match
+        # 17. Exact QNA Dataset match
         if norm_text in self.qa_dict:
             return self.qa_dict[norm_text]
 
         return None
+
 
     def process_command(self, text: str) -> Optional[str]:
         """
