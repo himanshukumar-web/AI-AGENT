@@ -367,7 +367,29 @@ class TestSkillRegistry(unittest.TestCase):
         self.assertIn("Youtube", summary)
 
 
+class TestDynamicToolDiscovery(unittest.TestCase):
+    def test_contextual_tool_selection(self):
+        """Test contextual dynamic tool subset filtering based on prompt topic."""
+        # 1. YouTube prompt
+        yt_tools = tool_registry.get_contextual_tools(query="play some lofi music on youtube")
+        yt_names = [t["name"] for t in yt_tools]
+        self.assertTrue(any("youtube" in n for n in yt_names))
+        self.assertFalse(any("automation.delete" in n for n in yt_names))
+
+        # 2. Automation prompt
+        auto_tools = tool_registry.get_contextual_tools(query="create morning alarm schedule automation")
+        auto_names = [t["name"] for t in auto_tools]
+        self.assertTrue(any("automation" in n for n in auto_names))
+        self.assertFalse(any("youtube.play" in n for n in auto_names))
+
+        # 3. Weather prompt
+        w_tools = tool_registry.get_contextual_tools(query="how is the weather in Delhi")
+        w_names = [t["name"] for t in w_tools]
+        self.assertTrue(any("weather" in n for n in w_names))
+
+
 if __name__ == "__main__":
+
 
     print("=" * 65)
     print("  RUNNING JARVIS AI FULL ADVANCED AGENT VERIFICATION SUITE")

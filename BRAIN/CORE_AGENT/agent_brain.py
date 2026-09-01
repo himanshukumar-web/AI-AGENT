@@ -357,7 +357,7 @@ class AgentBrain:
                 relevant_facts = memory_manager.search_relevant_context(raw_text)
                 system_prompt = get_system_prompt(custom_facts=relevant_facts)
                 history = conversation_manager.get_history_for_llm()[:-1]
-                tools = tool_registry.get_tool_definitions()
+                tools = tool_registry.get_contextual_tools(query=norm_text, active_topic=context_state.get("active_topic"))
 
                 # Step 1: Initial LLM inference
                 start_llm = time.perf_counter()
@@ -369,6 +369,7 @@ class AgentBrain:
                     temperature=LLM_TEMPERATURE,
                     max_tokens=LLM_MAX_TOKENS,
                 )
+
                 duration_ms = (time.perf_counter() - start_llm) * 1000.0
                 usage = getattr(llm_response, 'usage', {}) or {}
                 metrics_tracker.record_llm_call(

@@ -63,6 +63,51 @@ class ToolRegistry:
             })
         return schemas
 
+    def get_contextual_tools(self, query: Optional[str] = None, active_topic: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Dynamically select and return only relevant tool schemas for a given query or context topic.
+        Dramatically reduces LLM prompt token size and prevents hallucinations.
+        """
+        if not query and not active_topic:
+            return self.get_tool_definitions()
+
+        q = (query or "").lower()
+        topic = (active_topic or "").lower()
+
+        relevant_prefixes = set()
+
+        # Topic/Keyword mapping
+        if "youtube" in q or "music" in q or "song" in q or "video" in q or topic == "youtube":
+            relevant_prefixes.update(["youtube.", "browser.", "research."])
+        elif "browser" in q or "google" in q or "search" in q or "website" in q or "url" in q or topic == "browser":
+            relevant_prefixes.update(["browser.", "research."])
+        elif "automation" in q or "schedule" in q or "alarm" in q or "timer" in q or topic == "automation":
+            relevant_prefixes.update(["automation.", "system.time"])
+        elif "weather" in q or "temperature" in q or "mausam" in q or topic == "weather":
+            relevant_prefixes.update(["weather.", "system.time"])
+        elif "memory" in q or "remember" in q or "recall" in q or "forget" in q or topic == "memory":
+            relevant_prefixes.update(["memory."])
+        elif any(k in q for k in ["battery", "charge", "power", "ip", "joke", "advice", "app", "application", "diagnostic", "status", "doctor"]):
+            relevant_prefixes.update(["system.", "action."])
+        else:
+            # For general multi-step or broad reasoning, return all tools
+            return self.get_tool_definitions()
+
+        # Always include minimal core utilities if needed
+        relevant_prefixes.add("system.time")
+
+        filtered = []
+        for name, meta in self._tools.items():
+            if any(name.startswith(p) for p in relevant_prefixes):
+                filtered.append({
+                    "name": name,
+                    "description": meta["description"],
+                    "parameters": meta["parameters"],
+                })
+
+        return filtered if filtered else self.get_tool_definitions()
+
+
     def resolve_tool_name(self, name: str) -> Optional[str]:
         """Resolve a tool name or alias to canonical name."""
         clean = name.strip()
