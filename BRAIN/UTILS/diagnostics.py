@@ -94,7 +94,36 @@ class JarvisDoctor:
             "details": f"Store at {auto_path} (Ready)",
         }
 
+        # 8. Tools Registry
+        try:
+            from BRAIN.TOOLS.tool_registry import tool_registry
+            tool_defs = tool_registry.get_tool_definitions()
+            results["tools"] = {
+                "status": "OK",
+                "details": f"{len(tool_defs)} registered tools loaded and validated",
+            }
+        except Exception as e:
+            results["tools"] = {
+                "status": "WARN",
+                "details": f"Tool registry check: {e}",
+            }
+
+        # 9. Action Audit History
+        try:
+            from BRAIN.TOOLS.action_logger import action_logger
+            recent = action_logger.get_recent_actions(limit=1)
+            results["action_audit"] = {
+                "status": "OK",
+                "details": "Persistent action history active in SQLite",
+            }
+        except Exception as e:
+            results["action_audit"] = {
+                "status": "WARN",
+                "details": f"Action logger check: {e}",
+            }
+
         return results
+
 
     def print_report(self):
         """Format and print an attractive terminal health report."""

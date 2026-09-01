@@ -108,9 +108,10 @@ class OllamaProvider(BaseLLMProvider):
         if formatted_tools:
             payload["tools"] = formatted_tools
 
-        resp = requests.post(url, json=payload, timeout=60)
+        resp = requests.post(url, json=payload, timeout=8)
         if resp.status_code != 200:
             raise RuntimeError(f"Ollama error ({resp.status_code}): {resp.text}")
+
 
         data = resp.json()
         message = data.get("message", {})
