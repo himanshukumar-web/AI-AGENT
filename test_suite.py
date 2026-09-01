@@ -274,6 +274,29 @@ class TestAutomationManager(unittest.TestCase):
         self.assertTrue(deleted)
 
 
+class TestVoice3System(unittest.TestCase):
+    def test_hinglish_normalization(self):
+        """Test translation and normalization of Hindi/Hinglish voice intents."""
+        from FUNCTION.JARVIS_LISTEN.listen import normalize_hinglish, Trans_hindi_to_english, is_interruption_phrase
+        self.assertEqual(normalize_hinglish("YouTube kholo"), "youtube open")
+        self.assertEqual(normalize_hinglish("mujhe mausam batao"), "tell me the weather")
+        self.assertEqual(normalize_hinglish("Python tutorials search karo"), "python tutorials search for")
+        self.assertTrue(is_interruption_phrase("jarvis stop"))
+        self.assertTrue(is_interruption_phrase("ruko"))
+        self.assertTrue(is_interruption_phrase("chup"))
+
+
+    def test_spoken_text_cleaner(self):
+        """Test markdown and URL stripping for spoken voice output."""
+        from VOICE.voice_engine import clean_spoken_text
+        raw = "Here is the result: **Python 3.14** at https://python.org\n- Item 1\n- Item 2\n```print('hi')```"
+        cleaned = clean_spoken_text(raw)
+        self.assertNotIn("**", cleaned)
+        self.assertNotIn("https://", cleaned)
+        self.assertNotIn("```", cleaned)
+        self.assertIn("Python 3.14", cleaned)
+
+
 if __name__ == "__main__":
     print("=" * 65)
     print("  RUNNING JARVIS AI FULL ADVANCED AGENT VERIFICATION SUITE")
@@ -282,3 +305,4 @@ if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
     sys.exit(0 if result.wasSuccessful() else 1)
+

@@ -1,9 +1,10 @@
 """
-JARVIS AI — Voice Engine & Audio Provider Layer
-Provides thread-safe, interruptible TTS with sentence streaming and barge-in capability.
+JARVIS AI — Voice Engine & Audio Provider Layer (Voice 3.0)
+Provides thread-safe, interruptible TTS with spoken text sanitization and barge-in capability.
 """
 
 import queue
+import re
 import threading
 import time
 from typing import Optional
@@ -11,6 +12,24 @@ from colorama import Fore
 import pyttsx3
 
 from config import TTS_VOICE_RATE, TTS_VOICE_VOLUME
+
+
+def clean_spoken_text(text: str) -> str:
+    """Sanitize markdown formatting, URLs, code blocks, and asterisks for natural voice output."""
+    if not text:
+        return ""
+    # Remove code blocks
+    t = re.sub(r'```[\s\S]*?```', 'code omitted', text)
+    t = re.sub(r'`([^`]+)`', r'\1', t)
+    # Remove URLs
+    t = re.sub(r'https?://\S+', '', t)
+    # Remove markdown headers and bullet markers
+    t = re.sub(r'^[#*+\-]\s+', '', t, flags=re.MULTILINE)
+    # Remove bold/italic markers
+    t = re.sub(r'[*_~]', '', t)
+    # Remove excess whitespace
+    t = re.sub(r'\s+', ' ', t).strip()
+    return t
 
 
 class VoiceEngine:
@@ -23,7 +42,6 @@ class VoiceEngine:
         self._stop_requested = False
         self._rate = TTS_VOICE_RATE
         self._volume = TTS_VOICE_VOLUME
-        self._worker_thread = None
         self._engine = None
         self._init_engine()
 
@@ -38,7 +56,7 @@ class VoiceEngine:
                 self._engine.setProperty('voice', voices[1].id)
             elif voices:
                 self._engine.setProperty('voice', voices[0].id)
-        except Exception as e:
+        except Exception:
             self._engine = None
 
     @property
@@ -64,17 +82,18 @@ class VoiceEngine:
             return
 
         clean_text = str(text).strip()
+        spoken_text = clean_spoken_text(clean_text)
         print(Fore.CYAN + f"JARVIS: {clean_text}")
 
-        if not self._engine:
+        if not self._engine or not spoken_text:
             return
 
         self._stop_requested = False
 
         if block:
-            self._speak_sync(clean_text)
+            self._speak_sync(spoken_text)
         else:
-            threading.Thread(target=self._speak_sync, args=(clean_text,), daemon=True).start()
+            threading.Thread(target=self._speak_sync, args=(spoken_text,), daemon=True).start()
 
     def _speak_sync(self, text: str):
         """Synchronous speech execution with lock."""
@@ -94,3 +113,4 @@ class VoiceEngine:
 
 # Global singleton instance
 voice_engine = VoiceEngine()
+
