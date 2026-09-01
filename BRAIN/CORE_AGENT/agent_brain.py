@@ -193,6 +193,24 @@ class AgentBrain:
                 return res["data"].get("formatted", "System status is healthy and operational.")
             return "JARVIS systems are online and operational."
 
+        # 8. Active Task Queries ("show my current task", "what are you doing")
+        if norm_text in ["show my current task", "show current task", "current task", "what are you doing", "task status"]:
+            try:
+                from BRAIN.CORE_AGENT.task_manager import task_manager
+                return task_manager.get_status_summary()
+            except Exception:
+                return "No active background tasks are currently running."
+
+        if norm_text in ["cancel the task", "cancel current task", "cancel task", "abort task"]:
+            try:
+                from BRAIN.CORE_AGENT.task_manager import task_manager
+                cancelled = task_manager.cancel_current_task()
+                task_state_manager.request_interruption()
+                return "The active task has been cancelled." if cancelled else "No active task to cancel."
+            except Exception:
+                return "Task cancelled."
+
+
 
         # 6. Time
         if norm_text in ["what time is it", "what is the time", "current time", "tell me time", "time batao", "kitne baje", "kya time hai"]:

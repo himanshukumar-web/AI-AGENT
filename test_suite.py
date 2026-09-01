@@ -388,7 +388,43 @@ class TestDynamicToolDiscovery(unittest.TestCase):
         self.assertTrue(any("weather" in n for n in w_names))
 
 
+class TestTaskManager(unittest.TestCase):
+    def test_task_lifecycle_and_cancellation(self):
+        """Test task creation, step progression, completion, and cancellation."""
+        from BRAIN.CORE_AGENT.task_manager import task_manager, TaskStatus
+        task = task_manager.create_task("Compile Weekly Report", total_steps=3)
+        self.assertEqual(task.status, TaskStatus.RUNNING)
+        self.assertEqual(task.current_step, 0)
+
+        task_manager.update_step(1, "Gathering data")
+        self.assertEqual(task.current_step, 1)
+        self.assertEqual(task.progress_percent, 33)
+
+        summary = task_manager.get_status_summary()
+        self.assertIn("Compile Weekly Report", summary)
+        self.assertIn("Gathering data", summary)
+
+        task_manager.complete_task(result={"status": "done"})
+        self.assertEqual(task.status, TaskStatus.COMPLETED)
+        self.assertIsNone(task_manager.get_current_task())
+
+    def test_plan_visibility_summary(self):
+        """Test high-level plan step explanation generation."""
+        from BRAIN.PLANNER.planner import TaskPlan, PlanStep
+        plan = TaskPlan(title="Python Research", steps=[
+            PlanStep(tool="browser.search", description="Search for Python courses"),
+            PlanStep(tool="research.deep_search", description="Compare top results"),
+            PlanStep(tool="memory.remember", description="Save best course recommendations"),
+        ])
+        vis = plan.get_visibility_summary()
+        self.assertIn("Sure, I'll:", vis)
+        self.assertIn("1. Search for Python courses", vis)
+        self.assertIn("2. Compare top results", vis)
+        self.assertIn("3. Save best course recommendations", vis)
+
+
 if __name__ == "__main__":
+
 
 
     print("=" * 65)
