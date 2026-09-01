@@ -471,7 +471,30 @@ class TestEnhancedMemoryPruning(unittest.TestCase):
         self.assertEqual(self.mem.get_fact("ide_preference"), "VS Code")
 
 
+class TestPersonalityAndConfirmation(unittest.TestCase):
+    def test_personality_tones(self):
+        """Test personality modes formatting acknowledgments and errors."""
+        from BRAIN.CORE_AGENT.personality import personality_engine, PersonalityMode
+        personality_engine.set_mode(PersonalityMode.CONCISE)
+        self.assertEqual(personality_engine.format_acknowledgment("youtube", is_voice=True), "Done.")
+
+        personality_engine.set_mode(PersonalityMode.FRIENDLY)
+        self.assertIn("Done! Youtube", personality_engine.format_acknowledgment("youtube", is_voice=False))
+
+        err = personality_engine.format_error("Traceback (most recent call last):\nException: Timeout", is_voice=True)
+        self.assertNotIn("Traceback", err)
+        self.assertIn("couldn't do that", err)
+
+    def test_language_detection(self):
+        """Test detecting Hindi/Hinglish tone."""
+        from BRAIN.CORE_AGENT.personality import personality_engine
+        self.assertEqual(personality_engine.detect_language_tone("youtube kholo"), "hinglish")
+        self.assertEqual(personality_engine.detect_language_tone("mausam batao"), "hinglish")
+        self.assertEqual(personality_engine.detect_language_tone("open youtube in browser"), "english")
+
+
 if __name__ == "__main__":
+
 
 
 
