@@ -82,7 +82,7 @@ def _save_automations(automations):
 
 
 def _log_execution(automation_id, name, status, message=""):
-    """Log an automation execution event."""
+    """Log an automation execution event and notify multi-channel notification manager."""
     log_entry = {
         'timestamp': datetime.datetime.now().isoformat(),
         'automation_id': automation_id,
@@ -90,6 +90,17 @@ def _log_execution(automation_id, name, status, message=""):
         'status': status,
         'message': message
     }
+
+    try:
+        from BRAIN.NOTIFICATIONS.notification_manager import notification_manager
+        notification_manager.notify_automation_event(
+            event_type="execution",
+            name=name,
+            success=(status == 'success'),
+            details=message or ""
+        )
+    except Exception:
+        pass
 
     logs = []
     if os.path.exists(LOGS_FILE):
@@ -107,6 +118,7 @@ def _log_execution(automation_id, name, status, message=""):
     os.makedirs(os.path.dirname(LOGS_FILE), exist_ok=True)
     with open(LOGS_FILE, 'w', encoding='utf-8') as f:
         json.dump(logs, f, indent=2, default=str)
+
 
 
 # ── CRUD Operations ──────────────────────────────────────────────────────────

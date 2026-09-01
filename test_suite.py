@@ -423,7 +423,27 @@ class TestTaskManager(unittest.TestCase):
         self.assertIn("3. Save best course recommendations", vis)
 
 
+class TestNotificationManager(unittest.TestCase):
+    def test_multi_channel_notification(self):
+        """Test proactive notification dispatch across priority tiers."""
+        from BRAIN.NOTIFICATIONS.notification_manager import notification_manager, NotificationPriority, NotificationChannel
+        res = notification_manager.notify("Backup Complete", "All files synced.", priority=NotificationPriority.NORMAL)
+        self.assertTrue(res["dispatched"])
+
+        # Automation notification
+        auto_res = notification_manager.notify_automation_event("run", "Morning News", True)
+        self.assertTrue(auto_res["dispatched"])
+
+        # Battery alert
+        bat_res = notification_manager.notify_battery_alert(15, False)
+        self.assertTrue(bat_res["dispatched"])
+
+        hist = notification_manager.get_history(limit=5)
+        self.assertGreaterEqual(len(hist), 3)
+
+
 if __name__ == "__main__":
+
 
 
 
