@@ -143,7 +143,19 @@ def main():
         doctor.print_report()
         sys.exit(0)
 
+    # Check for Dashboard flag
+    if "--dashboard" in sys.argv:
+        from USER_INTERFACE.dashboard import start_dashboard_server
+        start_dashboard_server(port=7860, run_in_background=False)
+        sys.exit(0)
+
+    # Check for Debug / Developer Mode
+    debug_mode = "--debug" in sys.argv
+    if debug_mode:
+        print(Fore.LIGHTYELLOW_EX + "  [DEBUG MODE] Verbose metric tracking and task introspection enabled.")
+
     cli_mode = "--cli" in sys.argv or "-c" in sys.argv
+
 
     # Startup Sequence
     print(Fore.CYAN + f"\n  {ASSISTANT_NAME} is online and ready.")

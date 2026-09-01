@@ -7,6 +7,8 @@ import os
 import sys
 import unittest
 import tempfile
+import json
+
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJECT_ROOT not in sys.path:
@@ -493,7 +495,22 @@ class TestPersonalityAndConfirmation(unittest.TestCase):
         self.assertEqual(personality_engine.detect_language_tone("open youtube in browser"), "english")
 
 
+class TestDashboardAndStatus(unittest.TestCase):
+    def test_dashboard_handler_data(self):
+        """Test status payload generation for local dashboard without secret exposure."""
+        from USER_INTERFACE.dashboard import DashboardHandler
+        handler = DashboardHandler.__new__(DashboardHandler)
+        data = handler._get_status_data()
+        self.assertIn("diagnostics", data)
+        self.assertIn("recent_actions", data)
+        # Ensure no secrets in payload
+        data_str = json.dumps(data)
+        self.assertNotIn("sk-", data_str)
+        self.assertNotIn("password", data_str)
+
+
 if __name__ == "__main__":
+
 
 
 
