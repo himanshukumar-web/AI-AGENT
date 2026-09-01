@@ -42,6 +42,8 @@ class MemoryManager:
                     key_name TEXT UNIQUE NOT NULL,
                     value_text TEXT NOT NULL,
                     category TEXT DEFAULT 'preference',
+                    importance INTEGER DEFAULT 3,
+                    source TEXT DEFAULT 'user',
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
@@ -64,6 +66,7 @@ class MemoryManager:
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
                     tool_calls_json TEXT,
+                    importance INTEGER DEFAULT 1,
                     timestamp TEXT NOT NULL
                 )
             """)
@@ -72,7 +75,7 @@ class MemoryManager:
     SENSITIVE_KEYWORDS = ["api_key", "apikey", "password", "secret", "token", "auth_token", "private_key", "bearer "]
 
     # ── Long-Term Memory ────────────────────────────────────────────────────
-    def store_fact(self, key: str, value: str, category: str = "preference") -> bool:
+    def store_fact(self, key: str, value: str, category: str = "preference", importance: int = 3, source: str = "user") -> bool:
         """Store or update a user preference or fact with sensitive information protection."""
         if not key or not value:
             return False
@@ -89,17 +92,20 @@ class MemoryManager:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO long_term_memory (key_name, value_text, category, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO long_term_memory (key_name, value_text, category, importance, source, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(key_name) DO UPDATE SET
                         value_text=excluded.value_text,
                         category=excluded.category,
+                        importance=excluded.importance,
+                        source=excluded.source,
                         updated_at=excluded.updated_at
-                """, (clean_key, val_str, category.lower(), now, now))
+                """, (clean_key, val_str, category.lower(), importance, source, now, now))
                 conn.commit()
                 return True
         except Exception:
             return False
+
 
 
     def get_fact(self, key: str) -> Optional[str]:
@@ -245,6 +251,24 @@ class MemoryManager:
             rows = cursor.fetchall()
             return [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
 
+    def cleanup_old_history(self, days: int = 30) -> int:
+        """
+        Prune low-importance conversation turns older than given days.
+        Preserves high-importance turns and all long-term preferences.
+        """
+        cutoff = (datetime.datetime.now() - datetime.timedelta(days=days)).isoformat()
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    DELETE FROM conversation_history
+                    WHERE timestamp < ? AND importance < 3
+                """, (cutoff,))
+                conn.commit()
+                return cursor.rowcount
+        except Exception:
+            return 0
+
     def clear_all(self):
         """Reset all tables (testing utility)."""
         with self._get_connection() as conn:
@@ -257,3 +281,4 @@ class MemoryManager:
 
 # Global singleton instance
 memory_manager = MemoryManager()
+

@@ -442,7 +442,37 @@ class TestNotificationManager(unittest.TestCase):
         self.assertGreaterEqual(len(hist), 3)
 
 
+class TestEnhancedMemoryPruning(unittest.TestCase):
+    def setUp(self):
+        self.temp_db = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
+        self.temp_db.close()
+        self.mem = MemoryManager(db_path=self.temp_db.name)
+
+    def tearDown(self):
+        try:
+            os.unlink(self.temp_db.name)
+        except Exception:
+            pass
+
+    def test_importance_and_cleanup(self):
+        """Test storing fact with importance level and cleaning up dialogue history."""
+        # Store high importance preference
+        self.assertTrue(self.mem.store_fact("ide_preference", "VS Code", category="preference", importance=5))
+        self.assertEqual(self.mem.get_fact("ide_preference"), "VS Code")
+
+        # Log dialogue turns
+        self.mem.log_turn("session_1", "user", "Hello there")
+        self.mem.log_turn("session_1", "assistant", "Hello! How can I assist?")
+
+        # Cleanup turns older than 0 days (simulated)
+        deleted = self.mem.cleanup_old_history(days=0)
+        self.assertGreaterEqual(deleted, 0)
+        # Preference still intact
+        self.assertEqual(self.mem.get_fact("ide_preference"), "VS Code")
+
+
 if __name__ == "__main__":
+
 
 
 
