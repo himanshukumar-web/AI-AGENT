@@ -1,165 +1,195 @@
-# 🤖 JARVIS AI — Advanced LLM-Powered Personal AI Agent (Phase 2)
+# 🤖 JARVIS AI — Production-Grade Personal AI Assistant (Phase 3)
 
-An intelligent, context-aware, voice-first personal AI agent built in Python (Target: **Python 3.14.7**). JARVIS is powered by a **Central Agent Core**, **Intelligent Intent & Task Router**, **Lightweight Multi-Step Task Planner**, **Namespaced Tool Registry & Action Logger**, **SQLite Memory 2.0 (Short/Long-Term/Episodic)**, **Barge-in Voice 2.0 Engine**, and **Self-Diagnostics Doctor**.
+An intelligent, voice-first, layered personal AI assistant built in Python (Target: **Python 3.14.7**). JARVIS features **Voice System 3.0** (English, Hindi, Hinglish with thread-safe barge-in interruption), **Brain 3.0** (fast local deterministic routing + LLM delegation), **Provider-Agnostic LLM Architecture** (OpenAI, Gemini, Ollama, Groq, Offline Fallback), **Namespaced Tool Registry & Action Logger**, **3-Tier SQLite Memory 2.0**, **Lightweight Task Planner**, **Safety Boundaries & Secret Redaction**, and **Self-Diagnostics Doctor**.
 
 ---
 
-## 🏛️ Comprehensive Architecture
+## 🏛️ System Architecture
 
 ```
-USER (Voice / CLI)
+USER (Voice: English / Hindi / Hinglish / CLI)
   │
   ▼
-CONVERSATION MANAGER (Bounded Context Window + Situational State)
+CONVERSATION MANAGER (Bounded Context Window + Situational State + Ordinal Resolver)
   │
   ▼
-INTELLIGENT ROUTER (Zero-Latency Classification)
+INTELLIGENT ROUTER (Zero-Latency Local Intent Classification)
   │
-  ├─► INTERRUPT ──────────────► TASK STATE MANAGER (Stops Speech & Halts Execution)
+  ├─► INTERRUPT ──────────────► TASK STATE & VOICE ENGINE (Instant Stop & Speech Cancellation)
   │
-  ├─► SIMPLE COMMAND ─────────► DIRECT NAMESPACED TOOLS (0 LLM API calls)
+  ├─► SIMPLE COMMAND ─────────► DIRECT LOCAL TOOLS (0 LLM API calls, Instant Spoken Response)
   │
-  ├─► MEMORY COMMAND ─────────► MEMORY 2.0 (Remember, Recall, Forget)
+  ├─► MEMORY COMMAND ─────────► MEMORY 2.0 (Remember, Recall, Forget, Secret Filtering)
   │
-  ├─► MULTI-STEP TASK ────────► TASK PLANNER (Decomposes to sequential tool steps)
+  ├─► MULTI-STEP TASK ────────► TASK PLANNER (Structured Tool Steps & Safe Execution)
   │
-  └─► REASONING / QUESTION ───► LLM PROVIDER LAYER (OpenAI / Gemini / Groq / Ollama)
+  └─► REASONING / CHAT ───────► LLM PROVIDER LAYER (OpenAI / Gemini / Groq / Ollama / Offline)
                                       │
                                       ▼
-                              TOOL & ACTION REGISTRY (Namespaced, Validated Schemas)
+                              TOOL REGISTRY (Namespaced, Validated Schemas)
                                       │
                                       ▼
-                              SAFETY & RISK GUARD (Low / Medium / High Risk Policy)
+                              SAFETY POLICY & RISK GUARD (Low / Medium / High Risk Tiers)
                                       │
                                       ▼
-                              AUTOMATION SUBSYSTEMS (YouTube, Browser, Apps, Battery)
+                              AUTOMATION SUBSYSTEMS (YouTube, Browser, Apps, Battery, Alarms)
                                       │
                                       ▼
                               ACTION LOGGER & METRICS (Audit Log in SQLite without secrets)
                                       │
                                       ▼
-                              EPISODIC & LONG-TERM MEMORY (Structured Observation)
+                              EPISODIC & LONG-TERM MEMORY (Persistent State Observation)
                                       │
                                       ▼
                               GROUNDED RESPONSE SYNTHESIS (Natural, concise, non-robotic)
                                       │
                                       ▼
-                              VOICE 2.0 (Barge-in TTS) / CLI STREAMING
+                              VOICE 3.0 ENGINE (Pyttsx3 + Barge-In) / CLI STREAMING
 ```
 
 ---
 
-## 🚀 Key Phase 2 Features
+## 🚀 Key Phase 3 Capabilities
 
-### 1. 🧭 Intelligent Intent & Task Router
-- **Zero-Latency Dispatch**: Immediately classifies requests into:
-  - `INTERRUPT`: `"Jarvis stop"`, `"Cancel"`, `"Stop"` -> Instant halt.
-  - `SIMPLE_COMMAND`: `"what time is it"`, `"battery status"`, `"tell me a joke"`, `"open youtube"`, `"open notepad"` -> Local execution with 0 LLM calls.
-  - `MEMORY_COMMAND`: `"remember that..."`, `"forget what I told you about..."`, `"what do you remember..."` -> Direct SQLite Memory operations.
-  - `MULTI_STEP_TASK`: Instructions with multiple actions (*"Find the best Python courses, compare them and summarize the result"*) -> Delegated to Planner.
-  - `QUESTION_KNOWLEDGE`: Factual queries and conversational dialogue -> Grounded LLM reasoning.
+### 1. 🎙️ Voice System 3.0 & Interruption Engine
+- **Multilingual & Hinglish Recognition**: Interprets English, Hindi, and natural Hinglish commands (e.g., *"Jarvis YouTube kholo"*, *"Jarvis mujhe weather batao"*, *"Jarvis search karo Python tutorials"*, *"Jarvis battery kitni hai"*).
+- **Thread-Safe Barge-In Interruption**: Saying *"Jarvis stop"*, *"stop"*, *"cancel"*, *"ruko"*, or *"chup"* immediately cancels active speech and task plans without leaving the system in a broken state.
+- **Natural, Concise Spoken Phrasing**: Avoids robotic jargon (*"Sure, opening YouTube."*, *"The time is 10:20 PM."*, *"Done."*).
+- **Spoken Text Sanitizer**: Cleans markdown asterisks, URLs, and code blocks before feeding into the TTS engine.
+- **Microphone Resilience**: Dual-backend support with PyAudio and SoundDevice fallback with ambient noise calibration.
 
-### 2. 📋 Lightweight Task Planner
-- **Structured Step Generation**: Decomposes complex instructions into a sequence of discrete `PlanStep(tool, arguments, description)`.
-- **Sequential Execution**: Executes each step via the Tool Registry while continuously checking for user interruption.
-- **Episodic Persistence**: Records completed multi-step tasks in SQLite episodic memory.
-- **Strict Security**: Only registered allowlisted tools can be executed. Arbitrary shell or python code execution is strictly prohibited.
+### 2. 🧭 Brain 3.0 & Layered Intent Routing
+- **Zero-Latency Dispatch**:
+  - Deterministic queries (Time, Battery, Weather, Jokes, Advice, System status, App launches) execute locally with **0 ms LLM latency**.
+  - Ambiguous / complex reasoning requests are seamlessly delegated to the active LLM provider.
+- **Local Fallback Layers**: Retains fast TF-IDF and Naive Bayes models for local rule classification.
+- **Offline Mode**: Operates autonomously when internet or cloud LLMs are unreachable (*"LLM is currently offline, but I can still handle basic commands."*).
 
-### 3. 🛠️ Namespaced Tool Registry & Action Auditing
-- **Standardized Namespaces**:
-  - `system.time`, `system.battery`, `system.ip`, `system.internet`, `system.joke`, `system.advice`, `system.launch_app`, `system.close_app`
-  - `weather.get`
-  - `browser.open`, `browser.search`
-  - `youtube.play`, `youtube.search`, `youtube.pause`, `youtube.volume`
-  - `automation.create`, `automation.list`, `automation.update`, `automation.delete`, `automation.run`, `automation.history`
-  - `memory.remember`, `memory.recall`, `memory.forget`
-  - `research.deep_search`
-- **Action History Logging**: Every execution logs timestamp, tool name, sanitized parameters, duration (ms), risk level, and success/error to SQLite (`action_history` table) without saving credentials.
+### 3. 🧠 Provider-Agnostic LLM Layer
+- **Unified Interface**: `BaseLLMProvider` ensures JARVIS code is decoupled from specific providers.
+- **Supported Providers**:
+  - **OpenAI** (`gpt-4o`, `gpt-4o-mini`)
+  - **Google Gemini** (`gemini-2.0-flash`, `gemini-1.5-pro`)
+  - **Ollama Local Models** (`llama3`, `tinyllama`, `phi3`, `mistral`, `qwen2.5`)
+  - **Groq** (`llama-3.3-70b-versatile`)
+  - **Offline Rule Fallback**
+- **Dynamic Model Routing**:
+  - Simple tasks -> Local brain / tool
+  - Normal conversation -> Fast model
+  - Complex reasoning -> Stronger model
+  - Local mode -> Ollama instance with model presence check
 
-### 4. 🧠 Memory 2.0 (Short-Term, Long-Term, Episodic)
-- **Short-Term Context**: Current session turns, active app/topic, and recent search results list (for ordinal follow-up resolution e.g. *"play the second one"*).
-- **Long-Term Facts**: User preferences, traits, and explicit notes (*"Remember that my favorite artist is Hans Zimmer"*).
-- **Episodic Memory**: Completed multi-step plans, summaries, and key outcomes.
-- **Relevance Retrieval**: Scores and injects only relevant context for each prompt rather than sending the entire database to the LLM.
-- **Natural Memory Commands**:
-  - *"Remember that I prefer dark mode."*
-  - *"Forget what I told you about X."*
-  - *"What do you remember about my preferences?"*
+### 4. 🛠️ Central Namespaced Tool Registry
+- **Canonical Tools**:
+  - **System**: `system.time`, `system.battery`, `system.ip`, `system.internet`, `system.joke`, `system.advice`, `system.launch_app`, `system.close_app`, `system.diagnostics`
+  - **Weather**: `weather.get`
+  - **Browser**: `browser.open`, `browser.search`
+  - **YouTube**: `youtube.play`, `youtube.search`, `youtube.pause`, `youtube.volume`
+  - **Automation**: `automation.create`, `automation.list`, `automation.update`, `automation.delete`, `automation.run`, `automation.history`
+  - **Memory**: `memory.remember` (`memory.save`), `memory.recall` (`memory.search`), `memory.forget`
+  - **Research & Actions**: `research.deep_search`, `action.history`
+- **Safety Policy**: Low, Medium, and High risk tiers with strict permission validation.
 
-### 5. 🛑 Task State & Safe Interruption
-- Explicit state lifecycle: `IDLE`, `PLANNING`, `SEARCHING`, `EXECUTING`, `WAITING_CONFIRMATION`, `INTERRUPTED`, `COMPLETED`.
-- User interruption: Saying *"Jarvis stop"* or typing `"stop"` immediately halts ongoing TTS speech and cancels active task plans.
+### 5. 🗄️ 3-Tier SQLite Memory 2.0
+- **Short-Term Context**: Tracks session turns and search result lists for ordinal resolution (*"Play the second result"*, *"Play the last one"*).
+- **Long-Term Memory**: Stores user preferences, routines, and persistent facts.
+- **Episodic Memory**: Stores completed multi-step plans and execution outcomes.
+- **Secret Redaction**: Proactively rejects storing raw passwords, API keys, and sensitive tokens.
 
-### 6. 🏥 Self-Diagnostics (JARVIS Doctor)
-- Command: `python main.py --doctor` or voice `"Jarvis, run diagnostics"`
+### 6. 📋 Multi-Step Task Planner
+- Decomposes complex instructions into discrete `PlanStep` sequences using registered tools.
+- Supports step-by-step execution with safety bounds and instant interruption checks.
+
+### 7. 🏥 Self-Diagnostics (JARVIS Doctor)
+- Command: `python main.py --doctor` or voice command *"Jarvis, run diagnostics"*
 - Checks:
-  - Python runtime & environment
-  - Microphone & SoundDevice/PyAudio
-  - Offline TTS engine
+  - Python runtime (Python 3.14.7 target)
+  - Microphone & audio capture backends
+  - pyttsx3 offline speech engine
   - Internet connectivity
-  - Configured LLM provider & availability
-  - SQLite Memory 2.0 database integrity
-  - Custom Automations store
-
-### 7. 📊 Observability, Latency & Cost Tracking
-- Tracks total LLM calls, average response latency (ms), token usage estimates, and tool execution durations.
+  - Active LLM provider & local Ollama tags
+  - SQLite memory database integrity
+  - Custom automations store
+  - Registered tools count & Action history logger
 
 ---
 
-## ⚙️ Configuration & Setup
+## 💻 Installation & Setup
 
-### 1. Install Dependencies
-```powershell
+### 1. Prerequisites
+- Python 3.10+ (Tested & compatible with Python 3.14.7 / 3.13 / 3.12 / 3.11)
+- Windows OS (Default desktop audio and automation targets)
+
+### 2. Setup Virtual Environment
+```bash
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment (`.env`)
-Copy `.env.example` to `.env`:
+### 3. Environment Configuration
+Copy `.env.example` to `.env` and fill in your desired provider credentials:
 ```ini
 JARVIS_NAME=Jarvis
 JARVIS_USER_NAME=Sir
-WAKE_WORDS=jarvis,hey jarvis,ok jarvis,okay jarvis
 
+# LLM Provider Options: auto, openai, gemini, ollama, groq, offline_fallback
 LLM_PROVIDER=auto
-LLM_ROUTING_MODE=hybrid
+LLM_MODEL=
 
-# Optional Cloud API Keys (or run offline with Ollama/Rules)
+# Cloud API Keys (Optional if running offline with Ollama or local rules)
 OPENAI_API_KEY=
 GEMINI_API_KEY=
 GROQ_API_KEY=
 
-# Local Ollama
+# Local Ollama Configuration (Optional)
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3:latest
+OLLAMA_MODEL=tinyllama:latest
 
-# Weather
-OPENWEATHERMAP_API_KEY=
-WEATHER_CITY=New Delhi, India
+# Voice & Speech Settings
+TTS_VOICE_RATE=180
+TTS_VOICE_VOLUME=1.0
 ```
 
 ---
 
-## 💻 Usage
+## 🏃 Running JARVIS
 
-### Run Self-Diagnostics
-```powershell
+### Self-Diagnostics Health Check
+```bash
 python main.py --doctor
 ```
 
-### Run in Interactive CLI Mode
-```powershell
+### Text / CLI Mode (No Microphone Required)
+```bash
 python main.py --cli
 ```
 
-### Run in Voice Mode
-```powershell
+### Full Voice-First Mode
+```bash
 python main.py
+```
+
+### Running the Full Test Suite
+```bash
+python test_suite.py
 ```
 
 ---
 
-## 🧪 Verification Suite
-Run the full 21-point verification suite:
-```powershell
-python test_suite.py
-```
+## 🗣️ Voice Command Reference
+
+| Command Type | Example Spoken Input | Result |
+| :--- | :--- | :--- |
+| **Simple Info** | *"Jarvis, what time is it?"* | Local time tool (0ms LLM latency) |
+| **Hinglish Info** | *"Jarvis, mausam batao"* | Local weather tool |
+| **Website Launch** | *"Jarvis, open YouTube"* / *"YouTube kholo"* | Opens YouTube in browser |
+| **YouTube Search** | *"Search YouTube for Python tutorials"* | Searches YouTube & saves result list |
+| **Ordinal Follow-Up** | *"Play the second result"* | Resolves index 1 and plays video |
+| **Memory Store** | *"Remember that I like synthwave music"* | Stores preference in SQLite memory |
+| **Memory Recall** | *"What do you remember about my preferences?"* | Retrieves facts from SQLite memory |
+| **Memory Forget** | *"Forget about synthwave"* | Removes matching memory records |
+| **Automation** | *"Show my automations"* | Lists active custom automations |
+| **Multi-Step Task** | *"Find the best Python courses and summarize"* | Task planner + Deep research + Summary |
+| **Interruption** | *"Jarvis stop"* / *"Cancel"* / *"Ruko"* | Immediately stops TTS and cancels task |
+| **Diagnostics** | *"Jarvis, run diagnostics"* | Runs complete health check |
