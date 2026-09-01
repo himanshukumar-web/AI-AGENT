@@ -70,7 +70,7 @@ class ConversationManager:
 
         ordinals = {
             "first": 0, "1st": 0, "pehla": 0,
-            "second": 1, "2nd": 1, "doosra": 2,
+            "second": 1, "2nd": 1, "doosra": 1,
             "third": 2, "3rd": 2, "teesra": 2,
             "fourth": 3, "4th": 3, "chautha": 3,
             "fifth": 4, "5th": 4, "panchwa": 4,
@@ -81,6 +81,7 @@ class ConversationManager:
                 return idx
 
         return None
+
 
 
     def get_history_for_llm(self) -> List[Dict[str, str]]:

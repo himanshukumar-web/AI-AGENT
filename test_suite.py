@@ -179,6 +179,17 @@ class TestMemory2(unittest.TestCase):
         self.assertEqual(count, 1)
         self.assertIsNone(self.mem.get_fact("favorite_drink"))
 
+    def test_secret_redaction(self):
+        """Verify memory manager rejects storing sensitive credentials and tokens."""
+        saved_key = self.mem.store_fact("openai_api_key", "sk-1234567890abcdef")
+        self.assertFalse(saved_key)
+        self.assertIsNone(self.mem.get_fact("openai_api_key"))
+
+        saved_pass = self.mem.store_fact("my_password", "supersecretpass")
+        self.assertFalse(saved_pass)
+        self.assertIsNone(self.mem.get_fact("my_password"))
+
+
 
 class TestTaskStateAndInterruption(unittest.TestCase):
     def test_state_lifecycle(self):

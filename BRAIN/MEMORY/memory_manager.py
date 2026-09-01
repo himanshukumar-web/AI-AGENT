@@ -69,11 +69,22 @@ class MemoryManager:
             """)
             conn.commit()
 
+    SENSITIVE_KEYWORDS = ["api_key", "apikey", "password", "secret", "token", "auth_token", "private_key", "bearer "]
+
     # ── Long-Term Memory ────────────────────────────────────────────────────
     def store_fact(self, key: str, value: str, category: str = "preference") -> bool:
-        """Store or update a user preference or fact."""
-        now = datetime.datetime.now().isoformat()
+        """Store or update a user preference or fact with sensitive information protection."""
+        if not key or not value:
+            return False
+
         clean_key = key.strip().lower()
+        val_str = value.strip()
+
+        # Reject storage of raw passwords, API keys, and sensitive tokens
+        if any(sk in clean_key for sk in self.SENSITIVE_KEYWORDS) or any(sk in val_str.lower() for sk in self.SENSITIVE_KEYWORDS):
+            return False
+
+        now = datetime.datetime.now().isoformat()
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
@@ -84,11 +95,12 @@ class MemoryManager:
                         value_text=excluded.value_text,
                         category=excluded.category,
                         updated_at=excluded.updated_at
-                """, (clean_key, value.strip(), category.lower(), now, now))
+                """, (clean_key, val_str, category.lower(), now, now))
                 conn.commit()
                 return True
         except Exception:
             return False
+
 
     def get_fact(self, key: str) -> Optional[str]:
         """Retrieve a specific fact by key."""
