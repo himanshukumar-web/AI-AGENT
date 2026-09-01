@@ -126,8 +126,19 @@ class TestNamespacedToolRegistry(unittest.TestCase):
         self.assertEqual(actions[0]["tool_name"], "system.time")
         self.assertEqual(actions[0]["success"], 1)
 
+    def test_action_history_and_diagnostics_tools(self):
+        """Verify action.history and system.diagnostics tools execute cleanly."""
+        res_hist = tool_registry.execute_tool("action.history", {"limit": 3})
+        self.assertTrue(res_hist["success"])
+        self.assertIn("actions", res_hist["data"])
+
+        res_diag = tool_registry.execute_tool("system.diagnostics")
+        self.assertTrue(res_diag["success"])
+        self.assertIn("python", res_diag["data"])
+
 
 class TestMemory2(unittest.TestCase):
+
     def setUp(self):
         self.temp_db = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
         self.temp_db.close()

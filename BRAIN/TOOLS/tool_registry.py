@@ -653,10 +653,49 @@ class ToolRegistry:
                 "required": ["query"],
             },
             handler=_deep_search,
+            aliases=["deep_search", "web.search"],
         )
 
+        # ── 13. System Diagnostics (Doctor) ──────────────────────────────
+        def _run_diagnostics() -> Dict[str, Any]:
+            try:
+                from BRAIN.UTILS.diagnostics import doctor
+                report = doctor.run_diagnostics()
+                doctor.print_report()
+                return {"success": True, "data": report, "error": None}
+            except Exception as e:
+                return {"success": False, "data": None, "error": str(e)}
 
+        self.register(
+            name="system.diagnostics",
+            description="Run a complete self-diagnostics health check of JARVIS subsystems.",
+            parameters={"type": "object", "properties": {}},
+            handler=_run_diagnostics,
+            aliases=["doctor", "run_diagnostics", "system.health"],
+        )
+
+        # ── 14. Action History Auditing ──────────────────────────────────
+        def _get_action_history(limit: int = 10) -> Dict[str, Any]:
+            try:
+                actions = action_logger.get_recent_actions(limit=limit)
+                return {"success": True, "data": {"count": len(actions), "actions": actions}, "error": None}
+            except Exception as e:
+                return {"success": False, "data": None, "error": str(e)}
+
+        self.register(
+            name="action.history",
+            description="View recent tool executions and audit records.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Number of recent records to retrieve."}
+                }
+            },
+            handler=_get_action_history,
+            aliases=["get_recent_actions", "show_recent_actions", "action.audit"],
+        )
 
 
 # Global singleton instance
 tool_registry = ToolRegistry()
+

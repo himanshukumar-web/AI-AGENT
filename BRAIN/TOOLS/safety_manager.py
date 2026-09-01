@@ -46,7 +46,19 @@ class SafetyManager:
         "memory.recall": RiskLevel.LOW,
         "memory.list": RiskLevel.LOW,
         "research.deep_search": RiskLevel.LOW,
+        "deep_search": RiskLevel.LOW,
+        "web.search": RiskLevel.LOW,
         "system.diagnostics": RiskLevel.LOW,
+        "doctor": RiskLevel.LOW,
+        "run_diagnostics": RiskLevel.LOW,
+        "system.health": RiskLevel.LOW,
+        "action.history": RiskLevel.LOW,
+        "get_recent_actions": RiskLevel.LOW,
+        "show_recent_actions": RiskLevel.LOW,
+        "action.audit": RiskLevel.LOW,
+        "memory.save": RiskLevel.MEDIUM,
+        "memory.search": RiskLevel.LOW,
+
 
         # MEDIUM RISK: Interactive / Workspace actions
         "youtube_play": RiskLevel.MEDIUM,
