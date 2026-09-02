@@ -79,17 +79,20 @@ class ToolRegistry:
         # Topic/Keyword mapping
         if "youtube" in q or "music" in q or "song" in q or "video" in q or topic == "youtube":
             relevant_prefixes.update(["youtube.", "browser.", "research."])
-        elif "browser" in q or "google" in q or "search" in q or "website" in q or "url" in q or topic == "browser":
+        if "browser" in q or "google" in q or "website" in q or "url" in q or topic == "browser":
             relevant_prefixes.update(["browser.", "research."])
-        elif "automation" in q or "schedule" in q or "alarm" in q or "timer" in q or topic == "automation":
+        if any(k in q for k in ["screen", "display", "monitor", "click", "mouse", "type", "keyboard", "window", "cursor", "desktop", "capture", "see", "look", "button", "computer"]) or topic == "computer":
+            relevant_prefixes.update(["computer.", "browser."])
+        if "automation" in q or "schedule" in q or "alarm" in q or "timer" in q or topic == "automation":
             relevant_prefixes.update(["automation.", "system.time"])
-        elif "weather" in q or "temperature" in q or "mausam" in q or topic == "weather":
+        if "weather" in q or "temperature" in q or "mausam" in q or topic == "weather":
             relevant_prefixes.update(["weather.", "system.time"])
-        elif "memory" in q or "remember" in q or "recall" in q or "forget" in q or topic == "memory":
+        if "memory" in q or "remember" in q or "recall" in q or "forget" in q or topic == "memory":
             relevant_prefixes.update(["memory."])
-        elif any(k in q for k in ["battery", "charge", "power", "ip", "joke", "advice", "app", "application", "diagnostic", "status", "doctor"]):
+        if any(k in q for k in ["battery", "charge", "power", "ip", "joke", "advice", "app", "application", "diagnostic", "status", "doctor"]):
             relevant_prefixes.update(["system.", "action."])
-        else:
+
+        if not relevant_prefixes:
             # For general multi-step or broad reasoning, return all tools
             return self.get_tool_definitions()
 
@@ -147,6 +150,18 @@ class ToolRegistry:
             jarvis_logger.warning("SAFETY", err)
             action_logger.log_action(canonical_name, arguments, {"success": False, "error": err}, 0.0, risk.value, user_request)
             return {"success": False, "data": None, "error": err}
+
+        # Computer Use safety validation (budget, emergency stop, sensitive contexts)
+        if canonical_name.startswith("computer."):
+            try:
+                from BRAIN.COMPUTER.safety.computer_safety import computer_safety_manager
+                c_safe, c_err = computer_safety_manager.check_pre_action_safety(canonical_name, arguments)
+                if not c_safe:
+                    jarvis_logger.warning("SAFETY", c_err)
+                    action_logger.log_action(canonical_name, arguments, {"success": False, "error": c_err}, 0.0, risk.value, user_request)
+                    return {"success": False, "data": None, "error": c_err}
+            except Exception as e:
+                jarvis_logger.warning("SAFETY", f"Computer safety check error: {e}")
 
         handler = self._tools[canonical_name]["handler"]
         start_t = time.perf_counter()
@@ -738,6 +753,365 @@ class ToolRegistry:
             },
             handler=_get_action_history,
             aliases=["get_recent_actions", "show_recent_actions", "action.audit"],
+        )
+
+        # ── 15. Computer Vision & Controlled Computer Use ─────────────────
+        from BRAIN.COMPUTER.screen.capture import screen_capture
+        from BRAIN.COMPUTER.screen.monitor import monitor_manager
+        from BRAIN.COMPUTER.input.mouse import mouse_controller
+        from BRAIN.COMPUTER.input.keyboard import keyboard_controller
+        from BRAIN.COMPUTER.window.window_manager import window_manager
+        from BRAIN.COMPUTER.vision.element_detector import ui_element_detector
+        from BRAIN.COMPUTER.vision.screen_analyzer import screen_analyzer
+        from BRAIN.COMPUTER.safety.emergency_stop import emergency_stop_controller
+        from BRAIN.COMPUTER.visual_agent import visual_action_agent
+
+        def _computer_screenshot(save_temp: bool = False, monitor_index: Optional[int] = None) -> Dict[str, Any]:
+            img = screen_capture.capture_screen(monitor_index=monitor_index)
+            res = {"size": list(img.size), "saved": False}
+            if save_temp:
+                path = screen_capture.save_temp_screenshot(img)
+                res["temp_path"] = path
+                res["saved"] = True
+            return {"success": True, "data": res, "error": None}
+
+        self.register(
+            name="computer.screenshot",
+            description="Capture the desktop screen on-demand without persistent leaks.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "save_temp": {"type": "boolean", "description": "Whether to save to a temporary file."},
+                    "monitor_index": {"type": "integer", "description": "Monitor index (default primary)."}
+                }
+            },
+            handler=_computer_screenshot,
+            aliases=["screenshot", "take_screenshot", "screen.capture"],
+        )
+
+        def _computer_screen_size(monitor_index: Optional[int] = None) -> Dict[str, Any]:
+            w, h = monitor_manager.get_screen_dimensions(monitor_index)
+            monitors = [m.to_dict() for m in monitor_manager.get_all_monitors()]
+            return {"success": True, "data": {"width": w, "height": h, "monitors": monitors}, "error": None}
+
+        self.register(
+            name="computer.get_screen_size",
+            description="Get dimensions of connected monitors and primary display.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "monitor_index": {"type": "integer", "description": "Optional monitor index."}
+                }
+            },
+            handler=_computer_screen_size,
+            aliases=["get_screen_size", "screen_size"],
+        )
+
+        def _computer_active_window() -> Dict[str, Any]:
+            info = window_manager.get_active_window()
+            return {"success": True, "data": info, "error": None}
+
+        self.register(
+            name="computer.get_active_window",
+            description="Get details about the currently focused foreground window.",
+            parameters={"type": "object", "properties": {}},
+            handler=_computer_active_window,
+            aliases=["get_active_window", "active_window"],
+        )
+
+        def _computer_list_windows() -> Dict[str, Any]:
+            wins = window_manager.list_windows()
+            return {"success": True, "data": {"count": len(wins), "windows": wins}, "error": None}
+
+        self.register(
+            name="computer.list_windows",
+            description="List visible applications and desktop windows.",
+            parameters={"type": "object", "properties": {}},
+            handler=_computer_list_windows,
+            aliases=["list_windows", "get_open_windows"],
+        )
+
+        def _computer_focus_window(title: str) -> Dict[str, Any]:
+            res = window_manager.focus_window(title)
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.focus_window",
+            description="Bring an open window or application into active focus.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Title or app name of the window to focus."}
+                },
+                "required": ["title"]
+            },
+            handler=_computer_focus_window,
+            aliases=["focus_window", "switch_window"],
+        )
+
+        def _computer_close_window(title: str) -> Dict[str, Any]:
+            res = window_manager.close_window(title)
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.close_window",
+            description="Gracefully close a window or application.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Title or app name of the window to close."}
+                },
+                "required": ["title"]
+            },
+            handler=_computer_close_window,
+            aliases=["close_window"],
+        )
+
+        def _computer_find_element(description: str, min_confidence: float = 0.60) -> Dict[str, Any]:
+            el, msg = ui_element_detector.find_best_element(description, min_confidence=min_confidence)
+            if el:
+                return {"success": True, "data": el, "error": None}
+            return {"success": False, "data": None, "error": msg}
+
+        self.register(
+            name="computer.find_element",
+            description="Locate a specific UI button, input box, link, or tab on screen.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string", "description": "Description of the UI element to locate."},
+                    "min_confidence": {"type": "number", "description": "Minimum confidence threshold (0.0 to 1.0)."}
+                },
+                "required": ["description"]
+            },
+            handler=_computer_find_element,
+            aliases=["find_element", "locate_ui"],
+        )
+
+        def _computer_analyze_screen(query: str = "Describe what is currently visible on the screen") -> Dict[str, Any]:
+            analysis = screen_analyzer.analyze_screen(query)
+            return {"success": True, "data": analysis, "error": None}
+
+        self.register(
+            name="computer.analyze_screen",
+            description="Analyze visual desktop contents, active applications, and UI elements.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Question or prompt about the screen."}
+                }
+            },
+            handler=_computer_analyze_screen,
+            aliases=["analyze_screen", "what_is_on_screen"],
+        )
+
+        def _computer_move_mouse(x: int, y: int, duration: float = 0.2) -> Dict[str, Any]:
+            res = mouse_controller.move_mouse(x=x, y=y, duration=duration)
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.move_mouse",
+            description="Move mouse cursor to validated screen coordinates.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "x": {"type": "integer", "description": "X coordinate."},
+                    "y": {"type": "integer", "description": "Y coordinate."},
+                    "duration": {"type": "number", "description": "Movement duration in seconds."}
+                },
+                "required": ["x", "y"]
+            },
+            handler=_computer_move_mouse,
+            aliases=["move_mouse"],
+        )
+
+        def _computer_click(
+            x: Optional[int] = None,
+            y: Optional[int] = None,
+            element: Optional[str] = None,
+            button: str = "left",
+            clicks: int = 1
+        ) -> Dict[str, Any]:
+            res = visual_action_agent.execute_single_action(
+                "click",
+                target=element,
+                arguments={"x": x, "y": y, "element": element, "button": button, "clicks": clicks}
+            )
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.click",
+            description="Click at screen coordinates or visual element name with verification.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "x": {"type": "integer", "description": "X coordinate."},
+                    "y": {"type": "integer", "description": "Y coordinate."},
+                    "element": {"type": "string", "description": "Target UI element name to find and click."},
+                    "button": {"type": "string", "enum": ["left", "right", "middle"], "description": "Mouse button."},
+                    "clicks": {"type": "integer", "description": "Number of clicks."}
+                }
+            },
+            handler=_computer_click,
+            aliases=["mouse_click", "click"],
+        )
+
+        def _computer_double_click(x: Optional[int] = None, y: Optional[int] = None, element: Optional[str] = None) -> Dict[str, Any]:
+            res = visual_action_agent.execute_single_action(
+                "double_click",
+                target=element,
+                arguments={"x": x, "y": y, "element": element}
+            )
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.double_click",
+            description="Double-click at coordinates or on a specified visual element.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "x": {"type": "integer", "description": "X coordinate."},
+                    "y": {"type": "integer", "description": "Y coordinate."},
+                    "element": {"type": "string", "description": "UI element to double click."}
+                }
+            },
+            handler=_computer_double_click,
+            aliases=["double_click"],
+        )
+
+        def _computer_right_click(x: Optional[int] = None, y: Optional[int] = None) -> Dict[str, Any]:
+            res = mouse_controller.right_click(x=x, y=y)
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.right_click",
+            description="Right-click (context menu) at specified coordinates or current position.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "x": {"type": "integer", "description": "X coordinate."},
+                    "y": {"type": "integer", "description": "Y coordinate."}
+                }
+            },
+            handler=_computer_right_click,
+            aliases=["right_click"],
+        )
+
+        def _computer_scroll(clicks: int = -5, x: Optional[int] = None, y: Optional[int] = None) -> Dict[str, Any]:
+            res = mouse_controller.scroll(clicks=clicks, x=x, y=y)
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.scroll",
+            description="Scroll vertically (negative = down, positive = up).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "clicks": {"type": "integer", "description": "Amount to scroll (negative for down, positive for up)."},
+                    "x": {"type": "integer", "description": "Optional X coordinate to scroll at."},
+                    "y": {"type": "integer", "description": "Optional Y coordinate to scroll at."}
+                }
+            },
+            handler=_computer_scroll,
+            aliases=["scroll", "scroll_down", "scroll_up"],
+        )
+
+        def _computer_drag(start_x: int, start_y: int, end_x: int, end_y: int, duration: float = 0.5) -> Dict[str, Any]:
+            res = mouse_controller.drag(start_x, start_y, end_x, end_y, duration=duration)
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.drag",
+            description="Drag cursor from start coordinates to end coordinates.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "start_x": {"type": "integer", "description": "Starting X."},
+                    "start_y": {"type": "integer", "description": "Starting Y."},
+                    "end_x": {"type": "integer", "description": "Ending X."},
+                    "end_y": {"type": "integer", "description": "Ending Y."},
+                    "duration": {"type": "number", "description": "Duration in seconds."}
+                },
+                "required": ["start_x", "start_y", "end_x", "end_y"]
+            },
+            handler=_computer_drag,
+            aliases=["drag_mouse"],
+        )
+
+        def _computer_type(text: str, press_enter: bool = False) -> Dict[str, Any]:
+            res = keyboard_controller.type_text(text=text, press_enter=press_enter)
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.type",
+            description="Safely type text into the currently focused application.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Text to type."},
+                    "press_enter": {"type": "boolean", "description": "Whether to press Enter after typing."}
+                },
+                "required": ["text"]
+            },
+            handler=_computer_type,
+            aliases=["type_text", "keyboard_type"],
+        )
+
+        def _computer_press_key(key: str, presses: int = 1) -> Dict[str, Any]:
+            res = keyboard_controller.press_key(key=key, presses=presses)
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.press_key",
+            description="Press a whitelisted keyboard key (enter, escape, tab, arrows, etc.).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string", "description": "Key name to press."},
+                    "presses": {"type": "integer", "description": "Number of times to press."}
+                },
+                "required": ["key"]
+            },
+            handler=_computer_press_key,
+            aliases=["press_key"],
+        )
+
+        def _computer_hotkey(keys: Any) -> Dict[str, Any]:
+            k_list = keys if isinstance(keys, list) else str(keys).split("+")
+            res = keyboard_controller.hotkey(*k_list)
+            return {"success": res.get("success", False), "data": res, "error": res.get("error")}
+
+        self.register(
+            name="computer.hotkey",
+            description="Press a safe keyboard shortcut combination (e.g. ctrl+t, alt+tab, ctrl+w).",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "keys": {
+                        "description": "Keys in combination (e.g. ['ctrl', 't'] or 'ctrl+t')."
+                    }
+                },
+                "required": ["keys"]
+            },
+            handler=_computer_hotkey,
+            aliases=["hotkey", "shortcut"],
+        )
+
+        def _computer_emergency_stop(reason: str = "User requested emergency stop") -> Dict[str, Any]:
+            emergency_stop_controller.request_stop(reason)
+            return {"success": True, "data": {"stopped": True, "reason": reason}, "error": None}
+
+        self.register(
+            name="computer.emergency_stop",
+            description="Immediately halt and cancel all active computer actions.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "reason": {"type": "string", "description": "Reason for stopping."}
+                }
+            },
+            handler=_computer_emergency_stop,
+            aliases=["emergency_stop", "stop_computer"],
         )
 
 

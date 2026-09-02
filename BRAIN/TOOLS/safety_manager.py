@@ -59,6 +59,15 @@ class SafetyManager:
         "memory.save": RiskLevel.MEDIUM,
         "memory.search": RiskLevel.LOW,
 
+        # COMPUTER USE: LOW RISK (Read-only / Observation)
+        "computer.screenshot": RiskLevel.LOW,
+        "computer.get_screen_size": RiskLevel.LOW,
+        "computer.get_active_window": RiskLevel.LOW,
+        "computer.list_windows": RiskLevel.LOW,
+        "computer.find_element": RiskLevel.LOW,
+        "computer.analyze_screen": RiskLevel.LOW,
+        "computer.scroll": RiskLevel.LOW,
+        "computer.emergency_stop": RiskLevel.LOW,
 
         # MEDIUM RISK: Interactive / Workspace actions
         "youtube_play": RiskLevel.MEDIUM,
@@ -79,6 +88,17 @@ class SafetyManager:
         "remember_memory": RiskLevel.MEDIUM,
         "memory.remember": RiskLevel.MEDIUM,
 
+        # COMPUTER USE: MEDIUM RISK (Interactive Controlled Input)
+        "computer.move_mouse": RiskLevel.MEDIUM,
+        "computer.click": RiskLevel.MEDIUM,
+        "computer.double_click": RiskLevel.MEDIUM,
+        "computer.right_click": RiskLevel.MEDIUM,
+        "computer.drag": RiskLevel.MEDIUM,
+        "computer.type": RiskLevel.MEDIUM,
+        "computer.press_key": RiskLevel.MEDIUM,
+        "computer.hotkey": RiskLevel.MEDIUM,
+        "computer.focus_window": RiskLevel.MEDIUM,
+
         # HIGH RISK: Destructive / Closing / Deleting actions
         "delete_automation": RiskLevel.HIGH,
         "automation.delete": RiskLevel.HIGH,
@@ -86,6 +106,7 @@ class SafetyManager:
         "system.close_app": RiskLevel.HIGH,
         "clear_memory": RiskLevel.HIGH,
         "memory.forget": RiskLevel.HIGH,
+        "computer.close_window": RiskLevel.HIGH,
     }
 
     def __init__(self, mode: str = "ask_high_risk"):
