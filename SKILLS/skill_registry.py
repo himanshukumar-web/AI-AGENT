@@ -24,6 +24,7 @@ class SkillRegistry:
             from SKILLS.automation_skill import AutomationSkill
             from SKILLS.memory_skill import MemorySkill
             from SKILLS.research_skill import ResearchSkill
+            from SKILLS.computer_skill import ComputerSkill
 
             self.register(SystemSkill())
             self.register(BrowserSkill())
@@ -32,6 +33,7 @@ class SkillRegistry:
             self.register(AutomationSkill())
             self.register(MemorySkill())
             self.register(ResearchSkill())
+            self.register(ComputerSkill())
         except Exception as e:
             pass
 

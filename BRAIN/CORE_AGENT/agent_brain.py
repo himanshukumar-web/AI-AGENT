@@ -313,6 +313,37 @@ class AgentBrain:
         if norm_text in self.qa_dict:
             return self.qa_dict[norm_text]
 
+        # 18. Computer Vision & Desktop Perception
+        if norm_text in ["what is on my screen", "what's on my screen", "describe what is on my screen", "describe my screen", "screen pe kya hai", "what do you see on my screen"]:
+            res = tool_registry.execute_tool("computer.analyze_screen", user_request=raw_text)
+            if res.get("success"):
+                return res["data"].get("summary", "Screen analyzed.")
+            return "Unable to analyze the screen."
+
+        if norm_text in ["what application is open", "what app is open", "which app is open", "which window is open", "active application"]:
+            res = tool_registry.execute_tool("computer.get_active_window", user_request=raw_text)
+            if res.get("success"):
+                title = res["data"].get("title", "Unknown")
+                app = res["data"].get("app_name", "Unknown")
+                return f"Currently active: {app} with window '{title}'."
+            return "Unable to determine the active application."
+
+        if norm_text in ["what can you do with my computer", "computer capabilities", "what can you do on my computer"]:
+            try:
+                from SKILLS.computer_skill import ComputerSkill
+                skill = ComputerSkill()
+                return "Here are my computer control capabilities:\n" + "\n".join(f"- {c}" for c in skill.get_capabilities_list())
+            except Exception:
+                return "I can perceive your screen, locate UI elements, manage windows, and execute controlled mouse and keyboard actions with safety bounds."
+
+        if norm_text in ["scroll down", "niche scroll karo"]:
+            tool_registry.execute_tool("computer.scroll", {"clicks": -5}, user_request=raw_text)
+            return "Scrolled down."
+
+        if norm_text in ["scroll up", "upar scroll karo"]:
+            tool_registry.execute_tool("computer.scroll", {"clicks": 5}, user_request=raw_text)
+            return "Scrolled up."
+
         return None
 
 

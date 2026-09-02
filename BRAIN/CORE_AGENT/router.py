@@ -113,6 +113,10 @@ class IntelligentRouter:
             "run diagnostics", "diagnostics", "check health", "doctor",
             "show my recent actions", "show recent actions", "recent actions", "action history",
             "what can you do", "what are your capabilities", "capabilities", "what are your skills", "show skills", "skills",
+            "what can you do with my computer", "computer capabilities",
+            "what's on my screen", "what is on my screen", "describe my screen", "screen pe kya hai",
+            "what application is open", "what app is open", "which app is open", "which window is open",
+            "scroll down", "scroll up",
             "status", "jarvis status", "system status",
             "hello", "hi", "hey jarvis", "namaste", "goodbye", "bye", "exit", "quit",
         ]
