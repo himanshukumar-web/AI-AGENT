@@ -92,8 +92,8 @@ class ScreenCapture:
             # 2. Secondary approach: mss
             if img is None:
                 try:
-                    import mss
-                    with mss.mss() as sct:
+                    sct_factory = getattr(mss, 'MSS', getattr(mss, 'mss', None))
+                    with sct_factory() as sct:
                         idx = monitor_index if monitor_index is not None else 0
                         if idx < len(sct.monitors):
                             raw = sct.grab(sct.monitors[idx])

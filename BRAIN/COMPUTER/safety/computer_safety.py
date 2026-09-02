@@ -63,6 +63,10 @@ class ComputerSafetyManager:
         self._screenshot_count = 0
         self._retry_count = 0
         self._task_start_time = 0.0
+        self.max_actions = DEFAULT_MAX_ACTIONS
+        self.max_retries = DEFAULT_MAX_RETRIES
+        self.max_duration = DEFAULT_MAX_DURATION
+        self.max_screenshots = DEFAULT_MAX_SCREENSHOTS
 
     def classify_action(self, action_name: str, arguments: Optional[Dict[str, Any]] = None) -> ComputerRiskLevel:
         """Categorize computer action into LOW, MEDIUM, or HIGH risk."""

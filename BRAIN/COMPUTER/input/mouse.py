@@ -12,8 +12,8 @@ import pyautogui
 from BRAIN.COMPUTER.screen.monitor import monitor_manager
 from BRAIN.COMPUTER.screen.capture import DesktopAttachment
 
-# Configure PyAutoGUI failsafe
-pyautogui.FAILSAFE = True
+# Bounded validation is enforced by monitor_manager.is_point_within_bounds
+pyautogui.FAILSAFE = False
 pyautogui.PAUSE = 0.05
 
 
@@ -118,6 +118,12 @@ class MouseController:
             if not valid:
                 return {"success": False, "error": err}
             self.move_mouse(x, y, duration=0.1)
+        else:
+            # Guard against (0, 0) top-left corner which triggers PyAutoGUI failsafe
+            curr_x, curr_y = self.get_position()
+            if curr_x <= 5 and curr_y <= 5:
+                w, h = monitor_manager.get_screen_dimensions()
+                self.move_mouse(w // 2, h // 2, duration=0.05)
 
         try:
             with DesktopAttachment():

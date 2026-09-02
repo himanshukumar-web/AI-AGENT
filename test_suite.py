@@ -29,6 +29,15 @@ from BRAIN.UTILS.diagnostics import doctor
 from BRAIN.UTILS.metrics import metrics_tracker
 from BRAIN.PROMPTS.system_prompt import get_system_prompt
 from VOICE.voice_engine import voice_engine
+from tests.test_computer_use import (
+    TestScreenAndMonitor,
+    TestMouseAndKeyboardControl,
+    TestWindowManager,
+    TestVisionAndElementDetection,
+    TestSafetySensitiveUIAndEmergencyStop,
+    TestVisualActionLoopAndToolRegistry,
+    TestComputerSkillAndNaturalRouting,
+)
 
 
 class TestJarvisConfig(unittest.TestCase):
