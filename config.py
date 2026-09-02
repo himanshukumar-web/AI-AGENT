@@ -41,6 +41,15 @@ MEMORY_DB_PATH = os.environ.get('MEMORY_DB_PATH', os.path.join(PROJECT_ROOT, 'DA
 MAX_CONTEXT_TURNS = int(os.environ.get('MAX_CONTEXT_TURNS', '10'))
 CONFIRMATION_MODE = os.environ.get('CONFIRMATION_MODE', 'ask_high_risk').lower().strip()  # ask_high_risk, strict, auto_allow
 
+# ── Computer Vision & Computer Control Configuration ─────────────────────────
+ENABLE_SCREEN_CAPTURE = os.environ.get('ENABLE_SCREEN_CAPTURE', 'true').lower() in ('true', '1', 'yes')
+MAX_COMPUTER_ACTIONS = int(os.environ.get('MAX_COMPUTER_ACTIONS', '20'))
+MAX_COMPUTER_RETRIES = int(os.environ.get('MAX_COMPUTER_RETRIES', '3'))
+MAX_COMPUTER_DURATION = float(os.environ.get('MAX_COMPUTER_DURATION', '60.0'))
+VISION_CONFIDENCE_THRESHOLD = float(os.environ.get('VISION_CONFIDENCE_THRESHOLD', '0.60'))
+VISION_PROVIDER = os.environ.get('VISION_PROVIDER', 'auto').lower().strip()
+EMERGENCY_STOP_KEY = os.environ.get('EMERGENCY_STOP_KEY', 'esc').strip().lower()
+
 # ── Voice Configuration ──────────────────────────────────────────────────────
 WAKE_WORDS = [w.strip().lower() for w in os.environ.get('WAKE_WORDS', 'jarvis,hey jarvis,ok jarvis,okay jarvis,hello jarvis').split(',') if w.strip()]
 TTS_VOICE_RATE = int(os.environ.get('TTS_VOICE_RATE', '180'))

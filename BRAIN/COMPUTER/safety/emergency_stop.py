@@ -72,6 +72,11 @@ class EmergencyStopController:
         self._stop_event.clear()
         self._stop_reason = ""
         self._stop_timestamp = 0.0
+        try:
+            from BRAIN.CORE_AGENT.task_state import task_state_manager
+            task_state_manager.reset()
+        except Exception:
+            pass
 
     def register_abort_callback(self, callback: Callable[[], None]):
         """Register a callback to run immediately upon emergency stop."""
