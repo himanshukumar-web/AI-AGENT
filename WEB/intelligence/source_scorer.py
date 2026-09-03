@@ -132,11 +132,11 @@ class SourceQualityScorer:
         overall = (0.40 * auth_score) + (0.30 * rel_score) + (0.15 * rec_score) + (0.15 * ev_score)
         overall = round(overall, 3)
 
-        if overall >= 0.85:
+        if auth_score >= 0.88:
             tier = "High Authority"
-        elif overall >= 0.70:
+        elif auth_score >= 0.70:
             tier = "Reputable"
-        elif overall >= 0.50:
+        elif auth_score >= 0.50:
             tier = "Secondary"
         else:
             tier = "Low Authority"

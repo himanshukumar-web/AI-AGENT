@@ -87,15 +87,7 @@ class IntelligentRouter:
             if re.match(p, t):
                 return RouteCategory.MEMORY_COMMAND, {"sub_type": "recall", "query": None}
 
-        # 3. Check for Multi-Step Planning Tasks
-        if any(ind in t for ind in self.MULTI_STEP_INDICATORS) and len(t.split()) > 5:
-            return RouteCategory.MULTI_STEP_TASK, {"raw_prompt": text}
-
-        # 4. Check for Custom Automations
-        if any(w in t for w in ["create automation", "new automation", "list automation", "show automation", "show my automations", "delete automation", "disable automation", "run automation", "my automation", "remind me every", "every morning at", "every day at", "subah 9 baje"]):
-            return RouteCategory.AUTOMATION, {"command": text}
-
-        # 5. Check for Research Memory, Follow-ups, and Monitoring
+        # 3. Check for Research, Comparison, Memory, and Monitoring
         if t in ["save this research", "save research", "save the research"]:
             return RouteCategory.SEARCH_RESEARCH, {"sub_type": "save_research"}
 
@@ -124,6 +116,14 @@ class IntelligentRouter:
 
         if any(t.startswith(kw) for kw in ["define ", "brief "]):
             return RouteCategory.SEARCH_RESEARCH, {"sub_type": "research", "query": t, "mode": "quick"}
+
+        # 4. Check for Multi-Step Planning Tasks
+        if any(ind in t for ind in self.MULTI_STEP_INDICATORS) and len(t.split()) > 5:
+            return RouteCategory.MULTI_STEP_TASK, {"raw_prompt": text}
+
+        # 5. Check for Custom Automations
+        if any(w in t for w in ["create automation", "new automation", "list automation", "show automation", "show my automations", "delete automation", "disable automation", "run automation", "my automation", "remind me every", "every morning at", "every day at", "subah 9 baje"]):
+            return RouteCategory.AUTOMATION, {"command": text}
 
         # 6. Check for Simple Deterministic Commands (English & Hinglish)
         simple_patterns = [

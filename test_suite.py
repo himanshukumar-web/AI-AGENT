@@ -38,13 +38,28 @@ from tests.test_computer_use import (
     TestVisualActionLoopAndToolRegistry,
     TestComputerSkillAndNaturalRouting,
 )
+from tests.test_web_intelligence import (
+    TestSearchAbstraction,
+    TestQueryGeneration,
+    TestSourceCollectionAndDeduplication,
+    TestWebContentExtraction,
+    TestSourceQualityScoring,
+    TestFactExtractionAndCrossChecking,
+    TestCitationSystem,
+    TestComparisonEngine,
+    TestResearchSecurityAndPromptInjection,
+    TestResearchControls,
+    TestResearchMemoryAndMonitoring,
+    TestSafeEndToEndResearchScenarios,
+    TestResearchDoctorDiagnostics,
+)
 
 
 class TestJarvisConfig(unittest.TestCase):
     def test_paths_exist(self):
         """Verify all critical files exist in declared paths."""
         for name, path in PATHS.items():
-            if name in ['automations_db', 'automation_logs']:
+            if name in ['automations_db', 'automation_logs', 'research_db']:
                 continue  # Runtime files created on demand
             self.assertTrue(os.path.exists(path), f"Path does not exist: {path}")
 

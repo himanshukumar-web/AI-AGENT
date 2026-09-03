@@ -27,8 +27,10 @@ class SourceDeduplicator:
             filtered_query = {k: v for k, v in query_dict.items() if k.lower() not in self.TRACKING_PARAMS}
             clean_query = urlencode(filtered_query, doseq=True)
 
-            # Lowercase netloc and strip port 80/443
+            # Lowercase netloc and strip port 80/443 and www. prefix
             netloc = parsed.netloc.lower()
+            if netloc.startswith("www."):
+                netloc = netloc[4:]
             if netloc.endswith(":80"):
                 netloc = netloc[:-3]
             elif netloc.endswith(":443"):
