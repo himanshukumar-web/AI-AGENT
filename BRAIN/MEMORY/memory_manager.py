@@ -48,6 +48,13 @@ class MemoryManager:
                     updated_at TEXT NOT NULL
                 )
             """)
+            # Safe schema migration for pre-existing tables
+            cursor.execute("PRAGMA table_info(long_term_memory)")
+            existing_cols = [r["name"] if isinstance(r, sqlite3.Row) else r[1] for r in cursor.fetchall()]
+            if "importance" not in existing_cols:
+                cursor.execute("ALTER TABLE long_term_memory ADD COLUMN importance INTEGER DEFAULT 3")
+            if "source" not in existing_cols:
+                cursor.execute("ALTER TABLE long_term_memory ADD COLUMN source TEXT DEFAULT 'user'")
             # 2. Episodic Memory (Completed complex tasks & automations)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS episodic_memory (
