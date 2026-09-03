@@ -1,6 +1,6 @@
-# 🤖 JARVIS AI — Advanced Personal AI Assistant & Computer Use System (Phase 5)
+# 🤖 JARVIS AI — Advanced Personal AI Assistant, Computer Use & Web Intelligence System (Phase 6)
 
-An extensible, voice-first, proactive personal AI assistant built in Python (Target: **Python 3.14.7**). JARVIS features **Controlled Computer Vision & Desktop Perception**, **Bounded Mouse & Keyboard Control**, **Native Window Management**, **Multi-Tier Safety Guardrails**, **Global Emergency Stop**, **Modular Skill Architecture** (`SKILLS/`), **Contextual Dynamic Tool Discovery**, **Advanced Task Planner with Failure Recovery**, **Task Manager**, **Multi-Channel Notification Engine**, **4-Tier SQLite Memory 2.0**, and an **Optional Live Web Dashboard**.
+An extensible, voice-first, proactive personal AI assistant built in Python (Target: **Python 3.14.7**). JARVIS features **Deep Research & Autonomous Web Intelligence**, **Controlled Computer Vision & Desktop Perception**, **Bounded Mouse & Keyboard Control**, **Native Window Management**, **Multi-Tier Safety Guardrails**, **Global Emergency Stop**, **Modular Skill Architecture** (`SKILLS/`), **Contextual Dynamic Tool Discovery**, **Advanced Task Planner with Failure Recovery**, **Task Manager**, **Multi-Channel Notification Engine**, **4-Tier SQLite Memory 2.0**, and an **Optional Live Web Dashboard**.
 
 ---
 
@@ -22,6 +22,19 @@ INTELLIGENT ROUTER (Zero-Latency Local Intent Classification)
   ├─► CAPABILITIES / STATUS ──────► SKILL REGISTRY & SYSTEM STATUS (Introspection)
   │
   ├─► MEMORY COMMAND ─────────────► MEMORY 2.0 (Remember, Recall, Forget, Importance Scoring)
+  │
+  ├─► WEB INTELLIGENCE & RESEARCH ─► DEEP RESEARCH ENGINE (`WEB/`)
+  │                                   ├── SEARCH     : Multi-Provider Abstraction (DDG / Wiki / Browser / Mock)
+  │                                   ├── EXTRACTION : Safe HTML Parser, Noise Stripper & Markdown Tables
+  │                                   ├── DEDUPLICATE: Shingle 3-Gram Jaccard Near-Duplicate Filtering
+  │                                   ├── SCORING    : Authority, Recency, Relevance & Evidence Depth
+  │                                   ├── REASONING  : Fact Extraction, Cross-Checking & Conflict Flagging
+  │                                   ├── COMPARISON : Multi-Entity Comparison Matrix Generator
+  │                                   ├── CITATIONS  : Verified Grounded Numerical Citations [1]
+  │                                   ├── SECURITY   : Prompt Injection Defense & Data Boundary Isolation
+  │                                   ├── CONTROLS   : Rate Limiter, TTL Cache & Cancellation Token
+  │                                   ├── MEMORY     : SQLite Session Store & Source Change Monitor
+  │                                   └── PLANNER    : Quick, Standard & Deep Autonomous Synthesis
   │
   ├─► MULTI-STEP TASK ────────────► ADVANCED TASK PLANNER & TASK MANAGER (Structured steps, retries)
   │
@@ -48,6 +61,87 @@ INTELLIGENT ROUTER (Zero-Latency Local Intent Classification)
                                       ▼
                               VOICE 3.0 / CLI STREAMING / LIVE WEB DASHBOARD
 ```
+
+---
+
+## 🌐 Deep Research & Web Intelligence System (Phase 6)
+
+JARVIS includes an enterprise-grade autonomous Deep Research & Web Intelligence subsystem located in the `WEB/` package. It enables JARVIS to independently explore topics, collect reputable sources, detect conflicting claims, generate comparison matrices, and produce comprehensive research reports with verified citations—requiring **zero paid API keys**.
+
+### 1. 🔍 Provider-Independent Search Abstraction (`WEB/search/`)
+- **Multi-Provider Architecture**: Dynamic search layer decoupled from specific search APIs.
+- **Supported Providers**:
+  - `duckduckgo`: Zero-API-key HTML and Instant Answer scraper with URL unquoting.
+  - `wikipedia`: Direct Wikipedia OpenSearch and Page Summary REST API.
+  - `browser`: Headless Selenium browser search fallback.
+  - `mock`: Deterministic in-memory provider for fast, isolated unit testing.
+- **Failover Chain**: If the requested or primary search provider fails or is rate-limited, JARVIS automatically cascades through fallback providers without user interruption.
+- **Configurable Active Provider**: Controlled via `DEFAULT_SEARCH_PROVIDER = "auto"` in `config.py`.
+
+### 2. 📄 Safe Web Content Extraction (`WEB/extraction/extractor.py`)
+- **Boilerplate & Noise Stripping**: Removes `<script>`, `<style>`, `<nav>`, `<footer>`, `<aside>`, cookie notices, and advertisements.
+- **Structured Content**: Preserves clean document hierarchy (`h1`-`h3`), readable body text, and converts HTML tables into clean Markdown tables.
+- **Metadata Extraction**: Extracts titles, meta descriptions, publication dates, and calculates word counts.
+- **Timeout & Size Guards**: Enforces strict page size ceilings (1 MB max) and network timeouts (5.0s max) to prevent memory bloat or hanging threads.
+
+### 3. 🧹 Source Normalization & Content Deduplication (`WEB/extraction/deduplicator.py`)
+- **Canonical URL Normalization**: Strips tracking parameters (`utm_*`, `ref`, `fbclid`, `gclid`), fragments (`#...`), port numbers, and `www.` prefixes.
+- **Near-Duplicate Detection**: Implements 3-gram word shingling and Jaccard similarity thresholding (0.70) to identify mirrored or syndicated content.
+- **Highest-Authority Retention**: When duplicates are detected, JARVIS automatically retains the primary, higher-authority source and drops redundant copies.
+
+### 4. ⚖️ Multi-Dimensional Source Quality Scoring (`WEB/intelligence/source_scorer.py`)
+- Evaluates four independent dimensions to assign a composite quality score and authority tier:
+  1. **Authority Score (40%)**: Domain reputation (`.gov`, `.edu`, official documentation vs random blogs).
+  2. **Relevance Score (30%)**: Semantic match between search query terms and page title/snippet/body.
+  3. **Recency Score (15%)**: Distinguishes current 2026 data from legacy archives.
+  4. **Evidence Depth (15%)**: Substance, structured headings, and informative body length.
+- **Authority Tiers**: `High Authority` (≥0.88), `Reputable` (≥0.70), `Secondary` (≥0.50), and `Low Authority`.
+
+### 5. 🔬 Fact Extraction & Consensus Verification (`WEB/intelligence/`)
+- **Claim Extraction (`fact_extractor.py`)**: Identifies definitive factual statements, version assertions, specifications, and features.
+- **Consensus & Disagreement Cross-Checking (`cross_checker.py`)**:
+  - Validates assertions corroborated by 2+ independent sources as **Verified Consensus**.
+  - Explicitly flags conflicting claims with clear explanations: *"Sources disagree on this point: Source A reports X while Source B reports Y."*
+- **Recency Intent Detection (`recency.py`)**: Classifies queries requiring fresh information (*"latest"*, *"current"*, *"2026"*, *"new features"*).
+
+### 6. 📊 Multi-Entity Comparison Engine (`WEB/intelligence/comparator.py`)
+- Compares multiple products, frameworks, models, or technologies across standardized attributes:
+  - *Core Capabilities*, *Cost / Pricing*, *Latency / Speed*, *Privacy & Data Security*, *Local / Offline Support*, *API Availability*, and *Best Use Cases*.
+- Formats structured Markdown comparison tables and provides balanced architectural trade-off recommendations (e.g. Hybrid Local + Cloud).
+
+### 7. 🔗 Verified Grounded Citations (`WEB/intelligence/citations.py`)
+- **Zero Hallucination Policy**: JARVIS never fabricates URLs, sources, or citations.
+- **Numbered Citation Brackets**: Claims are grounded with numerical reference brackets (`[1]`, `[2]`).
+- **Verified Bibliography**: Appends a structured `## Sources` section containing verified titles, domains, and authentic URLs.
+
+### 8. 🧠 Autonomous Research Planner (`WEB/research/planner.py`)
+Executes an intelligent investigation loop:
+`QUERY EXPANSION -> SOURCE RETRIEVAL -> DEDUPLICATION -> PAGE EXTRACTION -> SCORING -> CLAIM EXTRACTION -> CROSS-CHECKING -> COMPARISON -> REPORT SYNTHESIS`.
+- **Modes**:
+  - **Quick Mode**: Single targeted query, ultra-fast summary, 1-2 verified sources.
+  - **Standard Mode**: Multi-query expansion, source deduplication, key findings, and citations.
+  - **Deep Mode**: Comprehensive multi-query investigation, full cross-checking, comparison matrix, and complete Markdown report.
+
+### 9. 💾 Persistent Research Memory & Monitoring (`WEB/research/`)
+- **Research Database (`DATA/jarvis_research.db`)**: Stores research sessions, queries, findings, source URLs, and reports with SQLite indexing.
+- **Follow-up Continuity**: Commands like *"save this research"* and *"continue that research"* seamlessly retrieve previous context and deepen investigations.
+- **Source Change Monitor (`monitor.py`)**: Analyzes prior research findings against fresh web searches and highlights diffs (*"New information detected..."*).
+
+### 10. 🛡️ Security, Rate Limiting & Prompt Injection Protection (`WEB/security/`)
+- **Untrusted Web Data Boundary**: All external scraped web content is treated strictly as **DATA**, never as instructions.
+- **Prompt Injection Defense (`sanitizer.py`)**: Scans for directive injection patterns (*"ignore previous instructions"*, *"system prompt:"*, *"delete files"*), filters them, and wraps content in inert XML containers:
+  ```xml
+  <untrusted_external_web_data context='evidence_only' do_not_execute='true'>
+  ... sanitized web content ...
+  </untrusted_external_web_data>
+  ```
+- **Hard Resource Quotas (`rate_limiter.py`)**:
+  - `MAX_SEARCHES = 15` per session
+  - `MAX_SOURCES = 12`
+  - `MAX_PAGE_FETCHES = 8`
+  - `MAX_RESEARCH_TIME = 90.0` seconds
+- **Thread-Safe Cancellation (`cancellation.py`)**: Immediate cooperative cancellation triggered via *"Jarvis stop research"* or *"cancel research"*.
+- **In-Memory TTL Caching (`caching.py`)**: Prevents redundant searches and fetches with configurable cache expiration.
 
 ---
 
@@ -90,7 +184,7 @@ INTELLIGENT ROUTER (Zero-Latency Local Intent Classification)
 
 ### 6. 🛑 Immediate Global Emergency Stop
 - Instant abort mechanism triggered by voice or text (*"Jarvis stop"*, *"stop everything"*, *"cancel computer task"*, *"ruko"*, *"chup"*).
-- Halts computer automation loops immediately without waiting for LLM network latency.
+- Halts computer automation and research loops immediately without waiting for LLM network latency.
 
 ### 7. 🔄 Visual Perception-Action-Verification Loop (`BRAIN/COMPUTER/visual_agent.py`)
 - Executes the closed loop:
@@ -156,9 +250,25 @@ GROQ_API_KEY=
 
 ---
 
+## ⚙️ Configuration (`config.py`)
+
+```python
+# Deep Research & Web Intelligence Settings
+DEFAULT_SEARCH_PROVIDER = "auto"       # "auto", "duckduckgo", "wikipedia", "browser", "mock"
+RESEARCH_DEPTH = "standard"             # "quick", "standard", "deep"
+MAX_SEARCHES = 15                       # Max search queries per research session
+MAX_SOURCES = 12                        # Max sources to collect
+MAX_PAGE_FETCHES = 8                    # Max full web pages to extract
+MAX_RESEARCH_TIME = 90.0                # Max research duration in seconds
+RESEARCH_CACHE_TTL = 3600               # Search & extract cache TTL in seconds
+RESEARCH_DB_PATH = PATHS["research_db"] # DATA/jarvis_research.db
+```
+
+---
+
 ## 🏃 Running JARVIS
 
-### Run Self-Diagnostics Health Check
+### Run Self-Diagnostics Health Check (Doctor)
 ```bash
 python main.py --doctor
 ```
@@ -178,12 +288,17 @@ python main.py --debug --cli
 python main.py
 ```
 
+### Run the Phase 6 Web Intelligence Test Suite
+```bash
+python -m unittest tests/test_web_intelligence.py
+```
+
 ### Run the Phase 5 Computer-Use Test Suite
 ```bash
 python -m unittest tests/test_computer_use.py
 ```
 
-### Run the Full Master Verification Suite
+### Run the Master Unified Test Suite (93+ Tests)
 ```bash
 python test_suite.py
 ```
@@ -194,6 +309,14 @@ python test_suite.py
 
 | Command Category | Example Voice Prompt | Description |
 | :--- | :--- | :--- |
+| **Quick Research** | *"Quick research on Python 3.14"* | Fast single-query search with direct summary & sources |
+| **Deep Research** | *"Do deep research on Python AI frameworks"* | Multi-step deep investigation with structured report |
+| **Comparative Analysis**| *"Compare OpenAI, Gemini and Ollama"* | Multi-entity feature matrix and trade-off recommendation |
+| **Documentation Lookup**| *"Find official documentation for PyTorch"* | Locates verified official developer documentation |
+| **Save Research** | *"Save this research"* | Stores current research session in SQLite research memory |
+| **Continue Research** | *"Continue that research"* | Follows up on previous research with fresh updates |
+| **Source Monitoring** | *"Check whether this information is still current"*| Checks for updates and highlights changes |
+| **Stop Research** | *"Jarvis, stop research"* / *"Cancel research"* | Immediately halts running research session |
 | **Screen Perception** | *"Jarvis, what's on my screen?"* | Analyzes visual display and summarizes open apps |
 | **Application State** | *"What application is open?"* | Returns active window title and application name |
 | **Element Discovery** | *"Find the search box"* | Locates UI buttons, text inputs, or tabs |
@@ -203,7 +326,7 @@ python test_suite.py
 | **Typing** | *"Type Python tutorials"* | Safely types text into focused application |
 | **Window Management** | *"Focus Chrome"* / *"Close this window"* | Switches focus or gracefully closes window |
 | **Emergency Stop** | *"Jarvis stop"* / *"Cancel computer task"* / *"Ruko"* | Immediately halts any running computer task |
-| **Status** | *"Jarvis, status"* | Summarizes subsystem health and active task |
+| **Doctor Diagnostics**| *"Jarvis, status"* / *"Run doctor"* | Runs system diagnostic health check |
 | **Website Launch** | *"Jarvis, open YouTube"* / *"YouTube kholo"* | Opens YouTube in browser |
 | **YouTube Search** | *"Search YouTube for Python tutorials"* | Searches YouTube & saves result list |
 | **Follow-up Selection** | *"Play the second result"* | Resolves index 1 and plays video |
