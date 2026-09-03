@@ -41,6 +41,16 @@ MEMORY_DB_PATH = os.environ.get('MEMORY_DB_PATH', os.path.join(PROJECT_ROOT, 'DA
 MAX_CONTEXT_TURNS = int(os.environ.get('MAX_CONTEXT_TURNS', '10'))
 CONFIRMATION_MODE = os.environ.get('CONFIRMATION_MODE', 'ask_high_risk').lower().strip()  # ask_high_risk, strict, auto_allow
 
+# ── Deep Research & Web Intelligence Configuration ───────────────────────────
+DEFAULT_SEARCH_PROVIDER = os.environ.get('DEFAULT_SEARCH_PROVIDER', 'auto').lower().strip()  # auto, duckduckgo, wikipedia, google_api, mock
+RESEARCH_DEPTH = os.environ.get('RESEARCH_DEPTH', 'standard').lower().strip()  # quick, standard, deep
+MAX_SEARCHES = int(os.environ.get('MAX_SEARCHES', '5'))
+MAX_SOURCES = int(os.environ.get('MAX_SOURCES', '10'))
+MAX_PAGE_FETCHES = int(os.environ.get('MAX_PAGE_FETCHES', '8'))
+MAX_RESEARCH_TIME = float(os.environ.get('MAX_RESEARCH_TIME', '45.0'))
+RESEARCH_CACHE_TTL = int(os.environ.get('RESEARCH_CACHE_TTL', '3600'))
+RESEARCH_DB_PATH = os.environ.get('RESEARCH_DB_PATH', os.path.join(PROJECT_ROOT, 'DATA', 'jarvis_research.db'))
+
 # ── Computer Vision & Computer Control Configuration ─────────────────────────
 ENABLE_SCREEN_CAPTURE = os.environ.get('ENABLE_SCREEN_CAPTURE', 'true').lower() in ('true', '1', 'yes')
 MAX_COMPUTER_ACTIONS = int(os.environ.get('MAX_COMPUTER_ACTIONS', '20'))
@@ -78,6 +88,7 @@ PATHS = {
     'automation_integration': os.path.join(PROJECT_ROOT, 'AUTOMATION', 'MAIN_INTREGATION', 'automation_intregation.py'),
     'modal_1': os.path.join(PROJECT_ROOT, 'BRAIN', 'TRANING BRAIN', 'MODAL_1', 'modal_1.py'),
     'modal_2': os.path.join(PROJECT_ROOT, 'BRAIN', 'TRANING BRAIN', 'MODAL_2', 'modal_2.py'),
+    'research_db': RESEARCH_DB_PATH,
 }
 
 # ── Module Loader ────────────────────────────────────────────────────────────
