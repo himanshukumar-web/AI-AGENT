@@ -25,7 +25,8 @@ class IntelligentRouter:
 
     INTERRUPT_KEYWORDS = [
         "stop", "cancel", "cancel that", "jarvis stop", "chup", "ruko",
-        "roko", "stop now", "abort", "shut up", "quiet", "silence", "stop speaking"
+        "roko", "stop now", "abort", "shut up", "quiet", "silence", "stop speaking",
+        "stop research", "cancel research", "abort research"
     ]
 
     MEMORY_REMEMBER_PATTERNS = [
@@ -94,9 +95,35 @@ class IntelligentRouter:
         if any(w in t for w in ["create automation", "new automation", "list automation", "show automation", "show my automations", "delete automation", "disable automation", "run automation", "my automation", "remind me every", "every morning at", "every day at", "subah 9 baje"]):
             return RouteCategory.AUTOMATION, {"command": text}
 
-        # 5. Check for Search / Deep Research
-        if any(t.startswith(kw) for kw in ["define ", "brief ", "research ", "teach me ", "deep search "]):
-            return RouteCategory.SEARCH_RESEARCH, {"query": t}
+        # 5. Check for Research Memory, Follow-ups, and Monitoring
+        if t in ["save this research", "save research", "save the research"]:
+            return RouteCategory.SEARCH_RESEARCH, {"sub_type": "save_research"}
+
+        if t in ["continue that research", "continue research", "continue the research", "follow up on that research"]:
+            return RouteCategory.SEARCH_RESEARCH, {"sub_type": "continue_research"}
+
+        if any(w in t for w in ["check if ", "check whether "]) and any(k in t for k in ["changed", "has changed", "still current", "updated"]):
+            return RouteCategory.SEARCH_RESEARCH, {"sub_type": "check_changed", "query": text}
+
+        # Check for Comparison
+        if t.startswith("compare ") or " vs " in t:
+            return RouteCategory.SEARCH_RESEARCH, {"sub_type": "compare", "query": text}
+
+        # Check for Deep / Quick / General Research
+        research_prefixes = [
+            "do deep research on ", "deep research on ", "deep research ",
+            "do research on ", "quick research on ", "quickly tell me ",
+            "research ", "deep search ", "investigate ", "brief me on ",
+            "teach me about ", "find official documentation for ", "search for "
+        ]
+        for rp in research_prefixes:
+            if t.startswith(rp):
+                q = t[len(rp):].strip()
+                mode = "deep" if "deep" in rp else ("quick" if "quick" in rp else "standard")
+                return RouteCategory.SEARCH_RESEARCH, {"sub_type": "research", "query": q, "mode": mode}
+
+        if any(t.startswith(kw) for kw in ["define ", "brief "]):
+            return RouteCategory.SEARCH_RESEARCH, {"sub_type": "research", "query": t, "mode": "quick"}
 
         # 6. Check for Simple Deterministic Commands (English & Hinglish)
         simple_patterns = [

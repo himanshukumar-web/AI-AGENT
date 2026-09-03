@@ -144,6 +144,72 @@ class AgentBrain:
 
         return "Memory operation completed."
 
+    def _handle_research_command(self, meta: Dict[str, Any], raw_text: str) -> str:
+        """Process web research, comparison, follow-up, and monitoring commands."""
+        sub_type = meta.get("sub_type", "research")
+
+        if sub_type == "save_research":
+            try:
+                from WEB.research.memory import research_memory
+                last = research_memory.get_last_session()
+                if last:
+                    return f"I have saved your research session on '{last.get('title')}' to persistent research memory, {USER_NAME}."
+                return f"No active research session to save right now, {USER_NAME}."
+            except Exception as e:
+                return f"Unable to save research: {e}"
+
+        if sub_type == "continue_research":
+            try:
+                from WEB.research.memory import research_memory
+                from WEB.research.planner import research_planner, ResearchMode
+                last = research_memory.get_last_session()
+                if last:
+                    target = f"{last.get('query')} latest documentation and updates 2026"
+                    res = research_planner.plan_and_execute(target, mode=ResearchMode.STANDARD)
+                    return f"Continuing previous research on '{last.get('title')}': {res.summary}"
+                return f"I couldn't find a previous research session to continue, {USER_NAME}."
+            except Exception as e:
+                return f"Error continuing research: {e}"
+
+        if sub_type == "check_changed":
+            try:
+                from WEB.research.monitor import source_monitor
+                res = source_monitor.check_for_changes(meta.get("query"))
+                return res.get("summary", "Source monitoring complete.")
+            except Exception as e:
+                return f"Error checking for updates: {e}"
+
+        if sub_type == "compare":
+            try:
+                from WEB.research.planner import research_planner, ResearchMode
+                res = research_planner.plan_and_execute(raw_text, mode=ResearchMode.STANDARD)
+                if res.comparison_table:
+                    print(f"\n{res.comparison_table}\n")
+                return res.summary
+            except Exception as e:
+                return f"Error conducting comparison: {e}"
+
+        # Standard / Quick / Deep Research
+        try:
+            from WEB.research.planner import research_planner, ResearchMode
+            query = meta.get("query") or raw_text
+            mode_str = meta.get("mode", "standard")
+            m = ResearchMode.DEEP if mode_str == "deep" else (ResearchMode.QUICK if mode_str == "quick" else ResearchMode.STANDARD)
+            res = research_planner.plan_and_execute(query, mode=m)
+
+            if res.cancelled:
+                return "Research was cancelled, sir."
+
+            if res.full_report and mode_str == "deep":
+                print(f"\n{res.full_report}\n")
+
+            if res.key_findings and len(res.key_findings) > 1:
+                findings_preview = "\n".join(f"- {f}" for f in res.key_findings[:3])
+                return f"{res.summary}\n\nKey Findings:\n{findings_preview}"
+            return res.summary
+        except Exception as e:
+            return f"Research encountered an error: {e}"
+
     def _try_fast_deterministic_path(self, raw_text: str, norm_text: str) -> Optional[str]:
         """
         Fast path: Instant local execution without LLM latency for unambiguous commands.
@@ -376,6 +442,13 @@ class AgentBrain:
         # 3. Memory 2.0 Command Direct Handler
         if category == RouteCategory.MEMORY_COMMAND:
             msg = self._handle_memory_command(meta)
+            conversation_manager.add_assistant_message(msg)
+            return msg
+
+        # 3.5. Web Intelligence & Deep Research Handler
+        if category == RouteCategory.SEARCH_RESEARCH:
+            jarvis_logger.info("AGENT", "Routing to Web Intelligence & Deep Research Planner")
+            msg = self._handle_research_command(meta, raw_text)
             conversation_manager.add_assistant_message(msg)
             return msg
 

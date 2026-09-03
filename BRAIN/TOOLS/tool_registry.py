@@ -78,9 +78,11 @@ class ToolRegistry:
 
         # Topic/Keyword mapping
         if "youtube" in q or "music" in q or "song" in q or "video" in q or topic == "youtube":
-            relevant_prefixes.update(["youtube.", "browser.", "research."])
+            relevant_prefixes.update(["youtube.", "browser.", "research.", "web."])
         if "browser" in q or "google" in q or "website" in q or "url" in q or topic == "browser":
-            relevant_prefixes.update(["browser.", "research."])
+            relevant_prefixes.update(["browser.", "research.", "web."])
+        if "research" in q or "search" in q or "compare" in q or "citation" in q or topic == "research":
+            relevant_prefixes.update(["web.", "research.", "browser."])
         if any(k in q for k in ["screen", "display", "monitor", "click", "mouse", "type", "keyboard", "window", "cursor", "desktop", "capture", "see", "look", "button", "computer"]) or topic == "computer":
             relevant_prefixes.update(["computer.", "browser."])
         if "automation" in q or "schedule" in q or "alarm" in q or "timer" in q or topic == "automation":
@@ -343,7 +345,7 @@ class ToolRegistry:
                 "required": ["url"],
             },
             handler=_open_website,
-            aliases=["open_website"],
+            aliases=["open_website", "web.open"],
         )
 
         def _search_google(query: str) -> Dict[str, Any]:
@@ -669,51 +671,186 @@ class ToolRegistry:
             handler=_forget_memory,
         )
 
-        # ── 12. Deep Research Tool ───────────────────────────────────────
-        def _deep_search(query: str) -> Dict[str, Any]:
-            # Method 1: Ultra-fast HTTP extraction via DuckDuckGo / Google HTML
-            try:
-                import requests
-                from bs4 import BeautifulSoup
-                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-                url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query)}"
-                resp = requests.get(url, headers=headers, timeout=2.5)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, 'html.parser')
-                    snippets = [s.get_text().strip() for s in soup.select('.result__snippet') if s.get_text()]
-                    if snippets:
-                        summary = " ".join(snippets[:3])
-                        return {"success": True, "data": {"query": query, "summary": summary}, "error": None}
-            except Exception:
-                pass
-
-            # Method 2: Fast Wikipedia / Encyclopedia summary fallback
-            try:
-                import requests
-                wiki_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(query.split()[0])}"
-                r = requests.get(wiki_url, timeout=2.0)
-                if r.status_code == 200:
-                    extract = r.json().get("extract")
-                    if extract:
-                        return {"success": True, "data": {"query": query, "summary": extract}, "error": None}
-            except Exception:
-                pass
-
-            return {"success": True, "data": {"query": query, "summary": f"Comprehensive research completed for '{query}'."}, "error": None}
-
+        # ── 12. Deep Research & Web Intelligence Tools ───────────────────
+        def _web_search_tool(query: str, max_results: int = 5) -> Dict[str, Any]:
+            from WEB.search.provider_manager import search_provider_manager
+            results = search_provider_manager.search(query, max_results=max_results)
+            return {"success": True, "data": {"query": query, "count": len(results), "results": [r.to_dict() for r in results]}, "error": None}
 
         self.register(
-            name="research.deep_search",
-            description="Perform deep web research and text summarization on a topic.",
+            name="web.search",
+            description="Search the web across independent search providers and return top ranked sources.",
             parameters={
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "Topic to research."}
+                    "query": {"type": "string", "description": "The search query."},
+                    "max_results": {"type": "integer", "description": "Maximum number of results."}
                 },
                 "required": ["query"],
             },
-            handler=_deep_search,
-            aliases=["deep_search", "web.search"],
+            handler=_web_search_tool,
+            aliases=["search", "web_search"],
+        )
+
+        def _web_extract_tool(url: str) -> Dict[str, Any]:
+            from WEB.extraction.extractor import web_extractor
+            ext = web_extractor.fetch_and_extract(url)
+            return {
+                "success": ext.success,
+                "data": {
+                    "url": ext.url,
+                    "title": ext.title,
+                    "text": ext.text,
+                    "headings": ext.headings,
+                    "tables": ext.tables,
+                    "word_count": ext.word_count,
+                    "publication_date": ext.publication_date,
+                },
+                "error": ext.error,
+            }
+
+        self.register(
+            name="web.extract",
+            description="Safely extract readable body text, headings, and tables from a web URL.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "The URL to extract content from."}
+                },
+                "required": ["url"],
+            },
+            handler=_web_extract_tool,
+            aliases=["extract_webpage", "web_extract"],
+        )
+
+        def _web_find_tool(query: str, max_results: int = 3) -> Dict[str, Any]:
+            from WEB.search.provider_manager import search_provider_manager
+            results = search_provider_manager.search(query, max_results=max_results)
+            snippets = [{"title": r.title, "url": r.url, "snippet": r.snippet} for r in results]
+            return {"success": True, "data": {"query": query, "results": snippets}, "error": None}
+
+        self.register(
+            name="web.find",
+            description="Quickly find relevant snippets and URLs for a topic.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search query."},
+                    "max_results": {"type": "integer", "description": "Number of snippets to retrieve."}
+                },
+                "required": ["query"],
+            },
+            handler=_web_find_tool,
+            aliases=["find_on_web", "web_find"],
+        )
+
+        def _web_collect_sources_tool(query: str, limit: int = 5) -> Dict[str, Any]:
+            from WEB.search.provider_manager import search_provider_manager
+            from WEB.extraction.deduplicator import source_deduplicator
+            from WEB.intelligence.source_scorer import source_scorer
+            raw = search_provider_manager.search(query, max_results=limit * 2)
+            unique = source_deduplicator.deduplicate(raw)[:limit]
+            scored = []
+            for s in unique:
+                sc = source_scorer.score_source(s, query=query)
+                d = s.to_dict()
+                d["quality_tier"] = sc.tier
+                d["quality_score"] = sc.overall_score
+                scored.append(d)
+            return {"success": True, "data": {"query": query, "count": len(scored), "sources": scored}, "error": None}
+
+        self.register(
+            name="web.collect_sources",
+            description="Collect and score independent, deduplicated web sources for a research topic.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The topic to collect sources for."},
+                    "limit": {"type": "integer", "description": "Target number of sources."}
+                },
+                "required": ["query"],
+            },
+            handler=_web_collect_sources_tool,
+            aliases=["collect_sources"],
+        )
+
+        def _web_compare_sources_tool(entities: List[str]) -> Dict[str, Any]:
+            from WEB.intelligence.comparator import comparison_engine
+            res = comparison_engine.compare(entities)
+            return {
+                "success": True,
+                "data": {
+                    "entities": res.entities,
+                    "matrix": res.matrix,
+                    "markdown_table": res.markdown_table,
+                    "recommendation": res.recommendation,
+                },
+                "error": None,
+            }
+
+        self.register(
+            name="web.compare_sources",
+            description="Produce a structured comparison matrix across products, models, or technologies.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "entities": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of entities to compare."
+                    }
+                },
+                "required": ["entities"],
+            },
+            handler=_web_compare_sources_tool,
+            aliases=["compare", "compare_technologies"],
+        )
+
+        def _web_research_tool(query: str, mode: str = "standard") -> Dict[str, Any]:
+            from WEB.research.planner import research_planner, ResearchMode
+            m = ResearchMode.DEEP if mode.lower() == "deep" else (ResearchMode.QUICK if mode.lower() == "quick" else ResearchMode.STANDARD)
+            res = research_planner.plan_and_execute(query, mode=m)
+            return {
+                "success": not res.cancelled,
+                "data": {
+                    "session_id": res.session_id,
+                    "query": res.query,
+                    "mode": res.mode.value,
+                    "summary": res.summary,
+                    "key_findings": res.key_findings,
+                    "sources_count": len(res.sources),
+                    "full_report": res.full_report,
+                },
+                "error": "Research was cancelled" if res.cancelled else None,
+            }
+
+        self.register(
+            name="web.research",
+            description="Execute multi-step autonomous research, cross-referencing, and report synthesis.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The topic or question to research."},
+                    "mode": {"type": "string", "enum": ["quick", "standard", "deep"], "description": "Depth mode."}
+                },
+                "required": ["query"],
+            },
+            handler=_web_research_tool,
+            aliases=["research", "research.deep_search", "deep_search"],
+        )
+
+        def _web_citations_tool() -> Dict[str, Any]:
+            from WEB.intelligence.citations import citation_manager
+            cits = [c.__dict__ for c in citation_manager.list_citations()]
+            formatted = citation_manager.format_sources_section()
+            return {"success": True, "data": {"count": len(cits), "citations": cits, "formatted": formatted}, "error": None}
+
+        self.register(
+            name="web.citations",
+            description="Get the verified citations and reference bibliography for the active research session.",
+            parameters={"type": "object", "properties": {}},
+            handler=_web_citations_tool,
+            aliases=["citations", "get_citations"],
         )
 
         # ── 13. System Diagnostics (Doctor) ──────────────────────────────

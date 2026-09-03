@@ -122,6 +122,73 @@ class JarvisDoctor:
                 "details": f"Action logger check: {e}",
             }
 
+        # 10. Research Search Provider
+        try:
+            from WEB.search.provider_manager import search_provider_manager
+            active_sp = search_provider_manager.get_active_provider_name()
+            all_sp = search_provider_manager.list_providers()
+            results["search_provider"] = {
+                "status": "OK",
+                "details": f"Active: {active_sp.upper()} (Available providers: {', '.join(all_sp)})",
+            }
+        except Exception as e:
+            results["search_provider"] = {
+                "status": "WARN",
+                "details": f"Search provider check: {e}",
+            }
+
+        # 11. Web Content Extraction Engine
+        try:
+            from WEB.extraction.extractor import web_extractor
+            sample = web_extractor.extract_from_html("<html><title>T</title><body><p>Hello world from diagnostics</p></body></html>")
+            ext_ok = sample.success and sample.text.startswith("Hello")
+            results["extraction"] = {
+                "status": "OK" if ext_ok else "WARN",
+                "details": "BeautifulSoup HTML & content extractor active",
+            }
+        except Exception as e:
+            results["extraction"] = {
+                "status": "FAIL",
+                "details": f"Web extraction error: {e}",
+            }
+
+        # 12. Research Storage Database
+        try:
+            from config import RESEARCH_DB_PATH
+            import sqlite3
+            r_db_ok = False
+            if os.path.exists(RESEARCH_DB_PATH):
+                with sqlite3.connect(RESEARCH_DB_PATH) as conn:
+                    cur = conn.cursor()
+                    cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                    tables = [r[0] for r in cur.fetchall()]
+                    r_db_ok = "research_sessions" in tables
+            results["research_storage"] = {
+                "status": "OK" if r_db_ok else "INFO",
+                "details": f"SQLite at {RESEARCH_DB_PATH} ({'Active' if r_db_ok else 'Ready'})",
+            }
+        except Exception as e:
+            results["research_storage"] = {
+                "status": "WARN",
+                "details": f"Research storage check: {e}",
+            }
+
+        # 13. Research Cache & Resource Controls
+        try:
+            from WEB.security.caching import research_cache
+            from WEB.security.rate_limiter import research_rate_limiter
+            cache_stats = research_cache.get_stats()
+            lim_stats = research_rate_limiter.get_stats()
+            results["research_cache"] = {
+                "status": "OK",
+                "details": f"TTL Cache active ({cache_stats['cached_searches']} searches, {cache_stats['cached_pages']} pages), Rate Limiter online",
+            }
+        except Exception as e:
+            results["research_cache"] = {
+                "status": "WARN",
+                "details": f"Research cache check: {e}",
+            }
+
         return results
 
 
