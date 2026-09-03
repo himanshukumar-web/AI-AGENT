@@ -59,11 +59,22 @@ class SearchProviderManager:
         """
         Execute search using requested provider or auto-fallback chain.
         Fallback order: Requested/Active -> DuckDuckGo -> Wikipedia -> Browser -> Mock.
+        Checks TTL cache before making network calls.
         """
         if not query or not query.strip():
             return []
 
         clean_query = query.strip()
+
+        # Check TTL cache
+        try:
+            from WEB.security.caching import research_cache
+            cached = research_cache.get_search_results(clean_query)
+            if cached:
+                return cached[:max_results]
+        except Exception:
+            pass
+
         target_name = (provider_name or self._active_provider_name).lower()
 
         # Direct provider requested
@@ -73,6 +84,11 @@ class SearchProviderManager:
                 try:
                     res = prov.search(clean_query, max_results=max_results)
                     if res:
+                        try:
+                            from WEB.security.caching import research_cache
+                            research_cache.set_search_results(clean_query, res)
+                        except Exception:
+                            pass
                         return res
                 except Exception:
                     pass
@@ -87,6 +103,11 @@ class SearchProviderManager:
                 try:
                     res = prov.search(clean_query, max_results=max_results)
                     if res:
+                        try:
+                            from WEB.security.caching import research_cache
+                            research_cache.set_search_results(clean_query, res)
+                        except Exception:
+                            pass
                         return res
                 except Exception:
                     continue

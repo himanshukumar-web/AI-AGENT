@@ -26,6 +26,9 @@ from WEB.intelligence.citations import citation_manager
 from WEB.intelligence.recency import recency_analyzer
 from WEB.research.report_generator import research_report_generator
 from WEB.research.memory import research_memory
+from WEB.security.sanitizer import web_sanitizer
+from WEB.security.rate_limiter import research_rate_limiter
+from WEB.security.cancellation import research_cancellation
 
 
 class ResearchMode(Enum):
@@ -132,10 +135,13 @@ class ResearchPlanner:
         """
         start_time = time.perf_counter()
         self.reset_cancellation()
+        research_cancellation.reset()
+        research_rate_limiter.start_session()
         session_id = str(uuid.uuid4())[:8]
 
         actual_mode = mode or self.detect_mode(query)
         citation_manager.reset()
+        rate_limited = False
 
         def _update_status(msg: str):
             if status_callback:
@@ -145,7 +151,7 @@ class ResearchPlanner:
                     pass
 
         # ── 1. Check for immediate cancellation ──────────────────────────
-        if self._cancellation_requested:
+        if self._cancellation_requested or research_cancellation.is_cancelled():
             return ResearchSessionResult(
                 session_id=session_id, query=query, mode=actual_mode,
                 summary="Research was cancelled by user.", cancelled=True
@@ -167,11 +173,18 @@ class ResearchPlanner:
         max_res_per_q = 2 if actual_mode == ResearchMode.QUICK else 4
         raw_sources: List[SearchResult] = []
         for q in search_queries:
-            if self._cancellation_requested:
+            if self._cancellation_requested or research_cancellation.is_cancelled():
                 return ResearchSessionResult(
                     session_id=session_id, query=query, mode=actual_mode,
                     summary="Research cancelled during source collection.", cancelled=True
                 )
+            can_search, err = research_rate_limiter.can_search()
+            if not can_search:
+                rate_limited = True
+                _update_status("Search query limit reached. Continuing with collected sources...")
+                break
+
+            research_rate_limiter.record_search()
             results = search_provider_manager.search(q, max_results=max_res_per_q, provider_name=provider_name)
             raw_sources.extend(results)
 
@@ -185,22 +198,28 @@ class ResearchPlanner:
         fetch_count = min(len(target_sources), MAX_PAGE_FETCHES if actual_mode == ResearchMode.DEEP else 3)
 
         for i in range(fetch_count):
-            if self._cancellation_requested:
+            if self._cancellation_requested or research_cancellation.is_cancelled():
                 break
             src = target_sources[i]
             # Register in Citation Manager
             citation_manager.register_source(src)
 
-            # Extract deep readable content if URL is valid HTTP
+            # Extract deep readable content if URL is valid HTTP and under rate limit
             if src.url.startswith("http") and not src.raw_content:
-                try:
-                    ext = web_extractor.fetch_and_extract(src.url)
-                    if ext.success and ext.text:
-                        src.raw_content = ext.text
-                        if ext.publication_date:
-                            src.publication_date = ext.publication_date
-                except Exception:
-                    pass
+                can_fetch, _ = research_rate_limiter.can_fetch_page()
+                if can_fetch:
+                    research_rate_limiter.record_page_fetch()
+                    try:
+                        ext = web_extractor.fetch_and_extract(src.url)
+                        if ext.success and ext.text:
+                            # Sanitize extracted untrusted web content to neutralize injection attacks
+                            src.raw_content = web_sanitizer.sanitize_web_content(ext.text)
+                            if ext.publication_date:
+                                src.publication_date = ext.publication_date
+                    except Exception:
+                        pass
+                else:
+                    rate_limited = True
 
             # Score source
             score = source_scorer.score_source(src, query=query, content_text=src.raw_content)
@@ -268,7 +287,7 @@ class ResearchPlanner:
             full_report=full_report,
             duration_ms=duration_ms,
             cancelled=False,
-            rate_limited=False,
+            rate_limited=rate_limited,
         )
 
         # Save to memory
