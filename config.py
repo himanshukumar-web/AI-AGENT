@@ -60,6 +60,16 @@ VISION_CONFIDENCE_THRESHOLD = float(os.environ.get('VISION_CONFIDENCE_THRESHOLD'
 VISION_PROVIDER = os.environ.get('VISION_PROVIDER', 'auto').lower().strip()
 EMERGENCY_STOP_KEY = os.environ.get('EMERGENCY_STOP_KEY', 'esc').strip().lower()
 
+# ── Multi-Agent Orchestration Configuration (Phase 7) ─────────────────────────
+AGENT_SYSTEM_ENABLED = os.environ.get('AGENT_SYSTEM_ENABLED', 'true').lower() in ('true', '1', 'yes')
+MAX_AGENT_STEPS = int(os.environ.get('MAX_AGENT_STEPS', '20'))
+MAX_TOOL_CALLS = int(os.environ.get('MAX_TOOL_CALLS', '50'))
+MAX_RETRIES = int(os.environ.get('MAX_RETRIES', '3'))
+TASK_TIMEOUT = float(os.environ.get('TASK_TIMEOUT', '120.0'))
+ENABLE_BACKGROUND_TASKS = os.environ.get('ENABLE_BACKGROUND_TASKS', 'true').lower() in ('true', '1', 'yes')
+REQUIRE_CONFIRMATION = os.environ.get('REQUIRE_CONFIRMATION', 'true').lower() in ('true', '1', 'yes')
+TASKS_DB_PATH = os.environ.get('TASKS_DB_PATH', os.path.join(PROJECT_ROOT, 'DATA', 'jarvis_tasks.db'))
+
 # ── Voice Configuration ──────────────────────────────────────────────────────
 WAKE_WORDS = [w.strip().lower() for w in os.environ.get('WAKE_WORDS', 'jarvis,hey jarvis,ok jarvis,okay jarvis,hello jarvis').split(',') if w.strip()]
 TTS_VOICE_RATE = int(os.environ.get('TTS_VOICE_RATE', '180'))
@@ -89,6 +99,7 @@ PATHS = {
     'modal_1': os.path.join(PROJECT_ROOT, 'BRAIN', 'TRANING BRAIN', 'MODAL_1', 'modal_1.py'),
     'modal_2': os.path.join(PROJECT_ROOT, 'BRAIN', 'TRANING BRAIN', 'MODAL_2', 'modal_2.py'),
     'research_db': RESEARCH_DB_PATH,
+    'tasks_db': TASKS_DB_PATH,
 }
 
 # ── Module Loader ────────────────────────────────────────────────────────────
