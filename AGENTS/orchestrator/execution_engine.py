@@ -149,6 +149,8 @@ class ExecutionEngine:
 
         # Prepare execution context with inputs + upstream shared memory
         node_inputs = dict(node.inputs)
+        if "action" not in node_inputs:
+            node_inputs["action"] = node.action
         context = AgentContext(
             task_id=task_id,
             step_id=node.id,

@@ -43,12 +43,12 @@ class AutomationAgent(BaseAgent):
             # 1. Create automation
             if action in ["create", "automation.create", "create_automation"]:
                 name = params.get("name") or context.get_input("name", "Custom Task")
-                action_name = params.get("action_name") or context.get_input("action_name", "speak_text")
+                action_type = params.get("action") or params.get("action_name") or context.get_input("action_name", "speak_text")
                 schedule_time = params.get("schedule_time") or context.get_input("schedule_time", "08:00")
                 context.budget_tracker.record_tool_call()
                 res = tool_registry.execute_tool(
                     "automation.create",
-                    {"name": name, "action_name": action_name, "schedule_time": schedule_time},
+                    {"name": name, "action": action_type, "schedule_time": schedule_time},
                     user_request=context.user_request,
                 )
                 if res.get("success"):
