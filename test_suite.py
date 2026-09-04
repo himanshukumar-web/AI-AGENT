@@ -53,6 +53,14 @@ from tests.test_web_intelligence import (
     TestSafeEndToEndResearchScenarios,
     TestResearchDoctorDiagnostics,
 )
+from tests.test_multi_agent import (
+    TestMultiAgentCoreAndRegistry,
+    TestAgentBudgetsAndSafety,
+    TestTaskGraphAndExecutionEngine,
+    TestVerificationAgent,
+    TestCrashRecoveryAndPersistence,
+    TestAutonomousWorkflowRunner,
+)
 
 
 class TestJarvisConfig(unittest.TestCase):
