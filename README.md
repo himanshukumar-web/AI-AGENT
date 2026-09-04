@@ -1,6 +1,6 @@
-# 🤖 JARVIS AI — Advanced Personal AI Assistant, Computer Use & Web Intelligence System (Phase 6)
+# 🤖 JARVIS AI — Multi-Agent Orchestration & Autonomous Workflows (Phase 7)
 
-An extensible, voice-first, proactive personal AI assistant built in Python (Target: **Python 3.14.7**). JARVIS features **Deep Research & Autonomous Web Intelligence**, **Controlled Computer Vision & Desktop Perception**, **Bounded Mouse & Keyboard Control**, **Native Window Management**, **Multi-Tier Safety Guardrails**, **Global Emergency Stop**, **Modular Skill Architecture** (`SKILLS/`), **Contextual Dynamic Tool Discovery**, **Advanced Task Planner with Failure Recovery**, **Task Manager**, **Multi-Channel Notification Engine**, **4-Tier SQLite Memory 2.0**, and an **Optional Live Web Dashboard**.
+An enterprise-grade, extensible, voice-first personal AI assistant built in Python (Target: **Python 3.14.7**). JARVIS features **Multi-Agent Orchestration & Dynamic Delegation** (`AGENTS/`), **TaskGraph (DAG) Execution with Parallel Concurrency**, **Mandatory Outcome Verification**, **Persistent SQLite Task State & Crash Recovery**, **Autonomous Workflows & Background Scheduling**, **Agent Budget Governance**, **Untrusted Web Data Isolation**, **Deep Research & Autonomous Web Intelligence**, **Controlled Computer Vision & Desktop Perception**, **4-Tier SQLite Memory 2.0**, and an **Optional Live Web Dashboard**.
 
 ---
 
@@ -15,28 +15,30 @@ AGENT CORE & CONVERSATION MANAGER (Bounded Context + State Tracking + Ordinal Re
   ▼
 INTELLIGENT ROUTER (Zero-Latency Local Intent Classification)
   │
-  ├─► INTERRUPT / EMERGENCY STOP ─► EMERGENCY STOP CONTROLLER & VOICE ENGINE (Instant Abort)
+  ├─► INTERRUPT / EMERGENCY STOP ─► EMERGENCY STOP CONTROLLER (Instant Abort)
   │
-  ├─► SIMPLE COMMAND ─────────────► DIRECT LOCAL TOOLS (0 LLM API calls, Instant Spoken Response)
+  ├─► SIMPLE COMMAND ─────────────► DIRECT LOCAL TOOLS (0 LLM API calls, Instant Response)
   │
   ├─► CAPABILITIES / STATUS ──────► SKILL REGISTRY & SYSTEM STATUS (Introspection)
   │
   ├─► MEMORY COMMAND ─────────────► MEMORY 2.0 (Remember, Recall, Forget, Importance Scoring)
   │
-  ├─► WEB INTELLIGENCE & RESEARCH ─► DEEP RESEARCH ENGINE (`WEB/`)
-  │                                   ├── SEARCH     : Multi-Provider Abstraction (DDG / Wiki / Browser / Mock)
-  │                                   ├── EXTRACTION : Safe HTML Parser, Noise Stripper & Markdown Tables
-  │                                   ├── DEDUPLICATE: Shingle 3-Gram Jaccard Near-Duplicate Filtering
-  │                                   ├── SCORING    : Authority, Recency, Relevance & Evidence Depth
-  │                                   ├── REASONING  : Fact Extraction, Cross-Checking & Conflict Flagging
-  │                                   ├── COMPARISON : Multi-Entity Comparison Matrix Generator
-  │                                   ├── CITATIONS  : Verified Grounded Numerical Citations [1]
-  │                                   ├── SECURITY   : Prompt Injection Defense & Data Boundary Isolation
-  │                                   ├── CONTROLS   : Rate Limiter, TTL Cache & Cancellation Token
-  │                                   ├── MEMORY     : SQLite Session Store & Source Change Monitor
-  │                                   └── PLANNER    : Quick, Standard & Deep Autonomous Synthesis
-  │
-  ├─► MULTI-STEP TASK ────────────► ADVANCED TASK PLANNER & TASK MANAGER (Structured steps, retries)
+  └─► MULTI-STEP / AUTONOMOUS ───► MULTI-AGENT ORCHESTRATOR (`AGENTS/orchestrator/orchestrator.py`)
+                                      ├── PLANNER AGENT     : Decomposes prompt into TaskGraph (DAG)
+                                      ├── POLICIES & BUDGET : Step, Tool, Runtime, Retries, Risk Gates
+                                      ├── SAFETY POLICY     : Untrusted Web Isolation & Injection Strip
+                                      ├── EXECUTION ENGINE  : Parallel Concurrency & Sequential Waves
+                                      ├── DELEGATION        : Routes subtasks to Specialized Agents
+                                      │     ├── CONVERSATION : Dialog, Explanation, Synthesis
+                                      │     ├── RESEARCH     : Deep Search, Extraction, Evidence, Citations
+                                      │     ├── AUTOMATION   : Background Tasks, Scheduling, YouTube
+                                      │     ├── BROWSER      : URL Launch, Navigation, Page Content
+                                      │     ├── COMPUTER     : Screen Perception, Vision, Mouse, Window
+                                      │     ├── SYSTEM       : Safe Telemetry, Battery, App Launch
+                                      │     └── MEMORY       : Semantic Store & Context Selection
+                                      ├── VERIFICATION AGENT: Validates actual outcome before completion
+                                      ├── TASK STATE STORE  : SQLite (DATA/jarvis_tasks.db) for Crash Recovery
+                                      └── MEMORY 2.0        : Records episode in long-term memory
   │
   └─► COMPUTER USE & REASONING ───► CONTEXTUAL DYNAMIC TOOL DISCOVERY (Filters tools by topic)
                                       │
@@ -262,11 +264,69 @@ MAX_PAGE_FETCHES = 8                    # Max full web pages to extract
 MAX_RESEARCH_TIME = 90.0                # Max research duration in seconds
 RESEARCH_CACHE_TTL = 3600               # Search & extract cache TTL in seconds
 RESEARCH_DB_PATH = PATHS["research_db"] # DATA/jarvis_research.db
+
+# Multi-Agent Orchestration Settings (Phase 7)
+AGENT_SYSTEM_ENABLED = True             # Enable multi-agent coordinator
+MAX_AGENT_STEPS = 20                    # Maximum steps per task graph
+MAX_TOOL_CALLS = 50                     # Maximum tool calls per task
+MAX_RETRIES = 3                         # Maximum retries with backoff
+TASK_TIMEOUT = 120.0                    # Global task execution timeout
+TASKS_DB_PATH = PATHS["tasks_db"]       # DATA/jarvis_tasks.db
 ```
 
 ---
 
+## 🧠 Multi-Agent Orchestration & Autonomous Workflows (Phase 7)
+
+JARVIS features a modular multi-agent system located under `AGENTS/` designed for high-reliability delegation, concurrency, safety gating, and verification:
+
+### 1. Specialized Agent Catalog
+| Agent | Role & Responsibilities | Key Capabilities | Allowed Tools | Risk Tier |
+| :--- | :--- | :--- | :--- | :--- |
+| **Conversation** | Dialog, explanations, user reasoning | `conversation`, `dialogue`, `summarization` | `action.history`, `memory.recall` | `LOW` |
+| **Research** | Web intelligence, evidence, citations | `web_search`, `deep_research`, `citations` | `web.search`, `web.extract`, `web.research`... | `LOW` |
+| **Automation** | Custom tasks, background workflows, YouTube | `automation_create`, `automation_run`, `youtube` | `automation.create`, `automation.run`, `youtube.play`... | `MEDIUM` |
+| **Browser** | Web navigation, page inspection | `browser_open`, `browser_search`, `web_extract` | `browser.open`, `browser.search`, `web.open`... | `LOW` |
+| **Computer** | Desktop vision, mouse, keyboard, windows | `screen_perception`, `mouse_click`, `window_focus` | `computer.screenshot`, `computer.click`... | `MEDIUM` |
+| **System** | Telemetry, diagnostics, safe app launch | `system_time`, `system_battery`, `launch_app` | `system.time`, `system.battery`, `weather.get`... | `LOW` |
+| **Memory** | Long-term preferences & context recall | `memory_store`, `memory_recall`, `memory_search` | `memory.remember`, `memory.recall`... | `LOW` |
+| **Planner** | Decomposes complex prompt into TaskGraph (DAG) | `task_decomposition`, `plan_generation` | *(None — Reasoning Only)* | `LOW` |
+| **Verification** | Validates physical/system action outcomes | `result_verification`, `file_verification` | `computer.get_active_window`, `system.diagnostics` | `LOW` |
+
+### 2. TaskGraph (DAG) Execution & Parallel Waves
+Complex instructions are decomposed into a Directed Acyclic Graph (`TaskGraph`). Independent tasks execute concurrently across thread workers in parallel waves, while dependent tasks wait until upstream outputs are available in shared memory.
+
+### 3. Mandatory Outcome Verification
+JARVIS enforces a strict verification layer (`VerificationAgent`). Actions are only marked as complete if verified:
+- **Research**: Verified that authentic sources and substantive summaries were retrieved.
+- **Automation**: Verified that the scheduled task exists in the automations database.
+- **Memory**: Verified that the fact exists in persistent SQLite storage.
+- **Computer / Window**: Verified that the targeted application window is active.
+
+### 4. Persistent State & Crash Recovery (`DATA/jarvis_tasks.db`)
+Every multi-agent task lifecycle is stored in SQLite. If JARVIS is interrupted or restarted midway:
+- JARVIS inspects incomplete tasks on boot.
+- Validates already completed nodes and never repeats dangerous actions.
+- Automatically resumes safe remaining steps.
+
+### 5. Agent Budgets & Safety Controls
+- **Anti-Loop Budgets**: `MAX_AGENT_STEPS=20`, `MAX_TOOL_CALLS=50`, `TASK_TIMEOUT=120.0s`, `MAX_RETRIES=3`.
+- **Data vs Instruction Separation**: External web data is encapsulated in inert XML `<untrusted_external_web_data>` boundaries.
+- **Tool Whitelists**: Agents can only call tools in their declared whitelist and cannot escalate permissions.
+
+---
+
 ## 🏃 Running JARVIS
+
+### Inspect Registered Specialized Agents (Phase 7)
+```bash
+python main.py --agents
+```
+
+### View Recent and Active Multi-Agent Tasks (Phase 7)
+```bash
+python main.py --tasks
+```
 
 ### Run Self-Diagnostics Health Check (Doctor)
 ```bash
@@ -288,6 +348,11 @@ python main.py --debug --cli
 python main.py
 ```
 
+### Run the Phase 7 Multi-Agent Test Suite
+```bash
+python -m unittest tests/test_multi_agent.py
+```
+
 ### Run the Phase 6 Web Intelligence Test Suite
 ```bash
 python -m unittest tests/test_web_intelligence.py
@@ -298,7 +363,7 @@ python -m unittest tests/test_web_intelligence.py
 python -m unittest tests/test_computer_use.py
 ```
 
-### Run the Master Unified Test Suite (93+ Tests)
+### Run Master Unified Test Suite (105 Tests)
 ```bash
 python test_suite.py
 ```
