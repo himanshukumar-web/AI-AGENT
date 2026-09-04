@@ -24,6 +24,7 @@ class JarvisDoctor:
 
     def run_diagnostics(self) -> dict:
         """Run all diagnostic checks and return status dictionary."""
+        import sqlite3
         results = {}
 
         # 1. Python Environment
@@ -74,17 +75,22 @@ class JarvisDoctor:
         # 6. SQLite Memory Database
         db_ok = False
         try:
-            conn = sqlite3.connect(MEMORY_DB_PATH)
-            c = conn.cursor()
-            c.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = [r[0] for r in c.fetchall()]
-            conn.close()
-            db_ok = "long_term_memory" in tables and "conversation_history" in tables
-        except Exception:
+            from config import MEMORY_DB_PATH
+            if os.path.exists(MEMORY_DB_PATH):
+                with sqlite3.connect(MEMORY_DB_PATH) as conn:
+                    c = conn.cursor()
+                    c.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                    tables = [r[0] for r in c.fetchall()]
+                    db_ok = "long_term_memory" in tables and "conversation_history" in tables
+        except Exception as e:
             db_ok = False
+            details_msg = f"Error: {e}"
+        else:
+            details_msg = f"{'Valid Schema' if db_ok else 'Uninitialized'}"
+
         results["memory_db"] = {
             "status": "OK" if db_ok else "WARN",
-            "details": f"SQLite at {MEMORY_DB_PATH} ({'Valid Schema' if db_ok else 'Uninitialized'})",
+            "details": f"SQLite at {MEMORY_DB_PATH} ({details_msg})",
         }
 
         # 7. Automations Store
@@ -187,6 +193,43 @@ class JarvisDoctor:
             results["research_cache"] = {
                 "status": "WARN",
                 "details": f"Research cache check: {e}",
+            }
+
+        # 14. Multi-Agent Subsystem & Registry (Phase 7)
+        try:
+            from AGENTS.core.agent_registry import agent_registry
+            import AGENTS.agents  # Ensures all agents registered
+            agents_list = agent_registry.list_agents()
+            names = [a["name"] for a in agents_list]
+            results["multi_agent"] = {
+                "status": "OK" if len(agents_list) >= 9 else "WARN",
+                "details": f"{len(agents_list)} specialized agents registered ({', '.join(names[:5])}...)",
+            }
+        except Exception as e:
+            results["multi_agent"] = {
+                "status": "FAIL",
+                "details": f"Multi-Agent registry error: {e}",
+            }
+
+        # 15. Multi-Agent Tasks Persistence
+        try:
+            from config import TASKS_DB_PATH
+            import sqlite3
+            t_db_ok = False
+            if os.path.exists(TASKS_DB_PATH):
+                with sqlite3.connect(TASKS_DB_PATH) as conn:
+                    cur = conn.cursor()
+                    cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                    tables = [r[0] for r in cur.fetchall()]
+                    t_db_ok = "task_records" in tables
+            results["tasks_storage"] = {
+                "status": "OK" if t_db_ok else "INFO",
+                "details": f"SQLite at {TASKS_DB_PATH} ({'Active' if t_db_ok else 'Ready'})",
+            }
+        except Exception as e:
+            results["tasks_storage"] = {
+                "status": "WARN",
+                "details": f"Tasks storage check: {e}",
             }
 
         return results

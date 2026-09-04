@@ -6,6 +6,7 @@ Dynamically routes subtasks to the optimal specialized agent based on capability
 from typing import Any, Dict, List, Optional
 from AGENTS.core.agent import BaseAgent
 from AGENTS.core.agent_registry import agent_registry
+import AGENTS.agents
 
 
 class AgentDelegator:

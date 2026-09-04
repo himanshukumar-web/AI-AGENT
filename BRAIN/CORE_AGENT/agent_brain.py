@@ -459,8 +459,19 @@ class AgentBrain:
                 conversation_manager.add_assistant_message(fast_res)
                 return fast_res
 
-        # 5. Multi-Step Task Planner
+        # 5. Multi-Agent Orchestrator & Multi-Step Task Planner (Phase 7)
         if category == RouteCategory.MULTI_STEP_TASK:
+            try:
+                from config import AGENT_SYSTEM_ENABLED
+                if AGENT_SYSTEM_ENABLED:
+                    from AGENTS.orchestrator import agent_orchestrator
+                    jarvis_logger.info("AGENT", "Delegating complex instruction to Multi-Agent Orchestrator")
+                    ans = agent_orchestrator.handle_request(raw_text)
+                    conversation_manager.add_assistant_message(ans)
+                    return ans
+            except Exception as e:
+                jarvis_logger.warning("AGENT", f"Multi-Agent Orchestrator fallback to TaskPlanner: {e}")
+
             jarvis_logger.info("AGENT", "Delegating complex instruction to Task Planner")
             plan = task_planner.create_plan(raw_text)
             exec_res = task_planner.execute_plan(plan)

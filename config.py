@@ -69,6 +69,7 @@ TASK_TIMEOUT = float(os.environ.get('TASK_TIMEOUT', '120.0'))
 ENABLE_BACKGROUND_TASKS = os.environ.get('ENABLE_BACKGROUND_TASKS', 'true').lower() in ('true', '1', 'yes')
 REQUIRE_CONFIRMATION = os.environ.get('REQUIRE_CONFIRMATION', 'true').lower() in ('true', '1', 'yes')
 TASKS_DB_PATH = os.environ.get('TASKS_DB_PATH', os.path.join(PROJECT_ROOT, 'DATA', 'jarvis_tasks.db'))
+MEMORY_DB_PATH = os.environ.get('MEMORY_DB_PATH', os.path.join(PROJECT_ROOT, 'DATA', 'jarvis_memory.db'))
 
 # ── Voice Configuration ──────────────────────────────────────────────────────
 WAKE_WORDS = [w.strip().lower() for w in os.environ.get('WAKE_WORDS', 'jarvis,hey jarvis,ok jarvis,okay jarvis,hello jarvis').split(',') if w.strip()]
@@ -100,6 +101,7 @@ PATHS = {
     'modal_2': os.path.join(PROJECT_ROOT, 'BRAIN', 'TRANING BRAIN', 'MODAL_2', 'modal_2.py'),
     'research_db': RESEARCH_DB_PATH,
     'tasks_db': TASKS_DB_PATH,
+    'memory_db': os.path.join(PROJECT_ROOT, 'DATA', 'jarvis_memory.db'),
 }
 
 # ── Module Loader ────────────────────────────────────────────────────────────

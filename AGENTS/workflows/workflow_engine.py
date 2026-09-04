@@ -123,6 +123,7 @@ class AutonomousWorkflowEngine:
             status=final_status,
             shared_memory=result.outputs,
             errors=[result.error] if result.error else [],
+            current_step=result.completed_nodes,
         )
 
         # 5. Episodic Memory Recording

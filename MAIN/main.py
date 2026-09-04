@@ -143,6 +143,37 @@ def main():
         doctor.print_report()
         sys.exit(0)
 
+    # Check for Agents introspection flag (Phase 7)
+    if "--agents" in sys.argv:
+        from AGENTS.core.agent_registry import agent_registry
+        import AGENTS.agents
+        print(Fore.CYAN + "\n" + "=" * 65)
+        print(Fore.CYAN + "  [AGENTS] JARVIS AI — REGISTERED SPECIALIZED AGENTS")
+        print(Fore.CYAN + "=" * 65)
+        for a in agent_registry.list_agents():
+            caps = ", ".join(a.get("capabilities", []))
+            tools_cnt = len(a.get("allowed_tools", []))
+            print(Fore.GREEN + f"  * {a['name'].upper()} ({a['risk_level']} Risk): " + Fore.WHITE + f"{a['description']}")
+            print(Fore.CYAN + f"    Capabilities: {caps}")
+            print(Fore.YELLOW + f"    Allowed Tools ({tools_cnt}): {', '.join(a.get('allowed_tools', [])[:6])}...")
+        print(Fore.CYAN + "=" * 65 + "\n")
+        sys.exit(0)
+
+    # Check for Tasks inspection flag (Phase 7)
+    if "--tasks" in sys.argv:
+        from AGENTS.orchestrator.state_store import task_state_store
+        print(Fore.CYAN + "\n" + "=" * 65)
+        print(Fore.CYAN + "  [TASKS] JARVIS AI — RECENT MULTI-AGENT TASKS")
+        print(Fore.CYAN + "=" * 65)
+        tasks = task_state_store.list_recent_tasks(limit=10)
+        if not tasks:
+            print(Fore.WHITE + "  No tasks recorded yet.")
+        for t in tasks:
+            status_color = Fore.GREEN if t["status"] == "COMPLETED" else (Fore.YELLOW if t["status"] in ("RUNNING", "PLANNING") else Fore.RED)
+            print(f"  {status_color}[{t['status']}] " + Fore.WHITE + f"{t['task_id']}: {t['title']} ({t['current_step']}/{t['total_steps']} steps) - {t['updated_at']}")
+        print(Fore.CYAN + "=" * 65 + "\n")
+        sys.exit(0)
+
     # Check for Dashboard flag
     if "--dashboard" in sys.argv:
         from USER_INTERFACE.dashboard import start_dashboard_server
